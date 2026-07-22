@@ -1,0 +1,50 @@
+:root {
+  /* Background — night sky from reference HTML */
+  --color-bg-deep: #1a1a2e;
+  --color-bg-mid: #16213e;
+  --color-bg-panel: #0f3460;
+  --color-bg-overlay: rgb(0 0 0 / 0.8);
+  --color-bg-panel-soft: rgb(0 0 0 / 0.5);
+
+  /* Accents */
+  --color-accent-red: #e74c3c;
+  --color-accent-red-deep: #991b1b;
+  --color-accent-blue: #3498db;
+  --color-accent-blue-deep: #1e40af;
+  --color-accent-yellow: #f1c40f;
+
+  /* Semantic */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #e74c3c;
+
+  /* Text */
+  --color-text: #ffffff;
+  --color-text-muted: #94a3b8;
+  --color-text-soft: #bfdbfe;
+  --color-char-pending: #ecf0f1;
+  --color-char-correct: #f1c40f;
+  --color-char-incorrect: #e74c3c;
+
+  /* Borders & glow */
+  --color-border: #16213e;
+  --color-border-blue: rgb(52 152 219 / 0.5);
+  --color-border-yellow: rgb(241 196 15 / 0.5);
+  --color-border-red: #e74c3c;
+  --glow-blue: 0 0 30px rgb(52 152 219 / 0.5);
+  --glow-red: 0 0 15px rgb(231 76 60 / 0.6);
+  --glow-yellow: 0 0 10px rgb(241 196 15 / 0.8);
+
+  /* Shape & motion */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 1000ms;
+
+  /* Fonts */
+  --font-display: 'Press Start 2P', cursive;
+  --font-body: 'Yusei Magic', sans-serif;
+}

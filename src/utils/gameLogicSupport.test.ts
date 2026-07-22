@@ -11,6 +11,28 @@ import {
   findMostDangerousTargetId,
 } from '../features/game/gameLogic'
 import type { GameTarget } from '../types/game'
+import { createRomajiMatchState } from './romajiMatcher'
+
+function makeTarget(overrides: Partial<GameTarget> = {}): GameTarget {
+  const matchState = createRomajiMatchState()
+
+  return {
+    id: 'a',
+    problemId: '1',
+    displayText: 'ねこ',
+    reading: 'ねこ',
+    displayRomaji: 'neko',
+    romajiPatterns: ['neko'],
+    matchState,
+    typedLength: 0,
+    xPercent: 20,
+    yPosition: 10,
+    speed: 1,
+    state: 'falling',
+    baseScore: 10,
+    ...overrides,
+  }
+}
 
 describe('targetSpawner and selection', () => {
   it('does not allow spawning beyond max active targets', () => {
@@ -54,35 +76,22 @@ describe('targetSpawner and selection', () => {
     })
     expect(target.xPercent).toBeGreaterThanOrEqual(8)
     expect(target.xPercent).toBeLessThanOrEqual(92)
+    expect(target.displayRomaji).toBe(problem.romajiPatterns[0]?.toLowerCase())
   })
 })
 
 describe('lock-on danger selection', () => {
   const targets: GameTarget[] = [
-    {
-      id: 'a',
-      problemId: '1',
-      displayText: 'neko',
-      inputText: 'neko',
-      typedLength: 0,
-      xPercent: 20,
-      yPosition: 10,
-      speed: 1,
-      state: 'falling',
-      baseScore: 10,
-    },
-    {
+    makeTarget({ id: 'a', displayText: 'ねこ', displayRomaji: 'neko', romajiPatterns: ['neko'] }),
+    makeTarget({
       id: 'b',
       problemId: '2',
-      displayText: 'nami',
-      inputText: 'nami',
-      typedLength: 0,
+      displayText: 'なみ',
+      reading: 'なみ',
+      displayRomaji: 'nami',
+      romajiPatterns: ['nami'],
       xPercent: 60,
-      yPosition: 10,
-      speed: 1,
-      state: 'falling',
-      baseScore: 10,
-    },
+    }),
   ]
 
   it('picks the lowest matching target using targetsRef y values', () => {

@@ -23,7 +23,7 @@ export function FallingTarget({
     }
   }, [registerElement, target.id])
 
-  const chars = target.inputText.split('')
+  const chars = target.displayRomaji.split('')
 
   return (
     <div
@@ -50,7 +50,10 @@ export function FallingTarget({
         <div className="mb-0.5 text-center text-xs font-normal text-[var(--color-text-soft)] md:text-sm">
           {target.displayText}
         </div>
-        <div className="font-display text-sm tracking-wide md:text-base" aria-label={target.inputText}>
+        <div
+          className="font-display text-sm tracking-wide md:text-base"
+          aria-label={`${target.displayText} ${target.displayRomaji}`}
+        >
           {chars.map((char, index) => {
             const isTyped = index < target.typedLength
             const isCurrent = index === target.typedLength && target.state !== 'destroyed'

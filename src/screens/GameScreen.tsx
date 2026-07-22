@@ -39,9 +39,14 @@ import { useGameLoop, type TargetMotion } from '../hooks/useGameLoop'
 import { useKeyboardInput } from '../hooks/useKeyboardInput'
 import { selectTypingProblem } from '../utils/selectTypingProblem'
 import { calculateScore } from '../utils/calculateScore'
-import { simpleInputMatcher } from '../utils/inputMatcher'
+import {
+  buildTypingStats,
+  formatElapsedTime,
+} from '../utils/calculateTypingStats'
+import { processRomajiInput } from '../utils/romajiMatcher'
 import type { DifficultyId } from '../types/app'
-import type { GameResultSummary, NinjaAnimationState } from '../types/game'
+import type { GameResultSummary, GameTarget, NinjaAnimationState } from '../types/game'
+import type { TypingProblem } from '../types/typing'
 
 interface SlashItem {
   id: string
@@ -61,12 +66,27 @@ interface GameScreenProps {
   onGameOver: (result: GameResultSummary) => void
 }
 
+function toTypingProblem(target: GameTarget, difficulty: DifficultyId): TypingProblem {
+  return {
+    id: target.problemId,
+    displayText: target.displayText,
+    reading: target.reading,
+    romajiPatterns: target.romajiPatterns,
+    difficulty,
+    category: 'basic',
+    baseScore: target.baseScore,
+  }
+}
+
 export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
   const config = useMemo(() => getDifficultyConfig(difficulty), [difficulty])
   const [state, dispatch] = useReducer(gameReducer, undefined, () => ({
     ...createInitialGameState(difficulty, gameConfig.maxHealth),
     status: 'playing' as const,
+    gameStartedAtMs: Date.now(),
   }))
+
+  const [hudNowMs, setHudNowMs] = useState(() => Date.now())
 
   const [areaHeight, setAreaHeight] = useState(0)
   const [damaged, setDamaged] = useState(false)
@@ -119,14 +139,46 @@ export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
   }, [clearTimers])
 
   useEffect(() => {
+    if (state.status !== 'playing' || state.gameStartedAtMs === null) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setHudNowMs(Date.now())
+    }, gameConfig.hudStatsUpdateIntervalMs)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [state.status, state.gameStartedAtMs])
+
+  useEffect(() => {
     if (state.status === 'gameover' && !endedRef.current) {
       endedRef.current = true
+      const elapsedMs =
+        state.gameStartedAtMs === null
+          ? 0
+          : Math.max(0, Date.now() - state.gameStartedAtMs)
+      const stats = buildTypingStats(
+        {
+          typedChars: state.typedCount,
+          correctChars: state.correctChars,
+          missCount: state.missCount,
+        },
+        elapsedMs,
+      )
       onGameOver({
         difficulty: state.difficulty,
         score: state.score,
         stage: state.stage,
         destroyedTargets: state.destroyedTargets,
         maxCombo: state.maxCombo,
+        typedChars: stats.typedChars,
+        correctChars: stats.correctChars,
+        missCount: stats.missCount,
+        elapsedMs: stats.elapsedMs,
+        wpm: stats.wpm,
+        accuracy: stats.accuracy,
       })
     }
   }, [state, onGameOver])
@@ -287,17 +339,23 @@ export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
         return
       }
 
-      if (!simpleInputMatcher.matches(target.inputText, target.typedLength, char)) {
+      const problem = toTypingProblem(target, current.difficulty)
+      const matchResult = processRomajiInput(
+        target.matchState,
+        problem,
+        char,
+      )
+
+      if (!matchResult.accepted) {
         dispatch({ type: 'TYPE_MISS' })
         return
       }
 
-      const nextLength = target.typedLength + 1
       setNinjaX(target.xPercent)
       setNinjaAnim('attack')
       schedule(() => setNinjaAnim('idle'), 160)
 
-      if (simpleInputMatcher.isComplete(target.inputText, nextLength)) {
+      if (matchResult.isComplete) {
         const nextCombo = current.combo + 1
         const scoreGain = calculateScore({
           baseScore: target.baseScore,
@@ -333,7 +391,12 @@ export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
           }, 900)
         }
 
-        dispatch({ type: 'TYPE_CORRECT', targetId: target.id })
+        dispatch({
+          type: 'TYPE_CORRECT',
+          targetId: target.id,
+          typedLength: matchResult.nextConfirmedLength,
+          matchState: matchResult.nextState,
+        })
         dispatch({
           type: 'DESTROY_TARGET',
           targetId: target.id,
@@ -355,10 +418,36 @@ export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
         return
       }
 
-      dispatch({ type: 'TYPE_CORRECT', targetId: target.id })
+      dispatch({
+        type: 'TYPE_CORRECT',
+        targetId: target.id,
+        typedLength: matchResult.nextConfirmedLength,
+        matchState: matchResult.nextState,
+      })
     },
     [config, schedule],
   )
+
+  const hudStats = useMemo(() => {
+    const elapsedMs =
+      state.gameStartedAtMs === null
+        ? 0
+        : Math.max(0, hudNowMs - state.gameStartedAtMs)
+    return buildTypingStats(
+      {
+        typedChars: state.typedCount,
+        correctChars: state.correctChars,
+        missCount: state.missCount,
+      },
+      elapsedMs,
+    )
+  }, [
+    hudNowMs,
+    state.correctChars,
+    state.gameStartedAtMs,
+    state.missCount,
+    state.typedCount,
+  ])
 
   useKeyboardInput({
     enabled: state.status === 'playing',
@@ -381,6 +470,9 @@ export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
           stage={state.stage}
           difficultyLabel={config.displayName}
           showStageUp={state.showStageUpFlash}
+          elapsedLabel={formatElapsedTime(hudStats.elapsedMs)}
+          wpm={hudStats.wpm}
+          accuracy={hudStats.accuracy}
         />
         <DefenseGauge defense={state.defense} maxDefense={gameConfig.maxHealth} />
 
@@ -408,7 +500,7 @@ export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
 
         {config.showBeginnerGuide && state.destroyedTargets === 0 && (
           <p className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[90%] -translate-x-1/2 text-center text-sm text-[var(--color-text-soft)] md:bottom-32">
-            落下するローマ字をタイプして手裏剣を撃ち落とせ！
+            落下する日本語をローマ字入力して手裏剣を撃ち落とせ！
           </p>
         )}
       </GameArea>

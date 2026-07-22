@@ -1,5 +1,6 @@
 import { getDifficultyConfig } from '../config/difficultyConfig'
 import { GameButton } from '../components/common/GameButton'
+import { formatElapsedTime } from '../utils/calculateTypingStats'
 import type { GameResultSummary } from '../types/game'
 
 interface ResultScreenProps {
@@ -60,12 +61,50 @@ export function ResultScreen({
             <div className="font-display text-right text-xl text-[var(--color-accent-red)]">
               {result.maxCombo}
             </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              Play Time
+            </div>
+            <div className="font-display text-right text-xl text-white">
+              {formatElapsedTime(result.elapsedMs)}
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              Typed Chars
+            </div>
+            <div className="font-display text-right text-xl text-white">
+              {result.typedChars}
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              Correct Chars
+            </div>
+            <div className="font-display text-right text-xl text-white">
+              {result.correctChars}
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              Miss Types
+            </div>
+            <div className="font-display text-right text-xl text-white">
+              {result.missCount}
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              Accuracy
+            </div>
+            <div className="font-display text-right text-xl text-[var(--color-accent-yellow)]">
+              {result.accuracy.toFixed(1)}%
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              WPM
+            </div>
+            <div className="font-display text-right text-xl text-[var(--color-accent-yellow)]">
+              {result.wpm.toFixed(1)}
+            </div>
           </dl>
         </div>
-
-        <p className="mb-6 text-sm text-[var(--color-text-muted)]">
-          WPM・正確率・記録比較は Phase 3 以降で追加予定
-        </p>
 
         <div className="flex flex-col items-stretch gap-3">
           <GameButton variant="secondary" size="lg" onClick={onRetry}>

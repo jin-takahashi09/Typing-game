@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ninja Typing Adventure</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Yusei+Magic&display=swap');
+
+        body {
+            font-family: 'Yusei Magic', sans-serif;
+            background-color: #1a1a2e;
+            background-image: radial-gradient(circle at center, #16213e 0%, #0f3460 100%);
+            color: #fff;
+            overflow: hidden; /* Prevent scrolling during gameplay */
+        }
+
+        .game-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        /* Ninja Animation Elements */
+        #ninja-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            z-index: 10;
+            transition: left 0.2s ease-out; /* Smooth horizontal movement */
+        }
+
+        .ninja {
+            width: 100%;
+            height: 100%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="30" r="20" fill="%23333"/><rect x="35" y="50" width="30" height="40" fill="%23333"/><rect x="25" y="20" width="50" height="10" fill="%23e74c3c"/><circle cx="43" cy="28" r="3" fill="%23fff"/><circle cx="57" cy="28" r="3" fill="%23fff"/></svg>');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .ninja.attack {
+            animation: attackAnim 0.15s ease-in-out;
+        }
+
+        @keyframes attackAnim {
+            0% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.1) translateY(-10px); }
+            100% { transform: scale(1) translateY(0); }
+        }
+
+        /* Enemy/Target Elements */
+        .target-container {
+            position: absolute;
+            top: -50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: top 0.05s linear; /* Smooth falling */
+        }
+
+        .enemy-sprite {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 5px;
+            /* Simple SVG Shuriken as enemy */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 0 L60 40 L100 50 L60 60 L50 100 L40 60 L0 50 L40 40 Z" fill="%23bdc3c7" stroke="%237f8c8d" stroke-width="2"/></svg>');
+            background-size: contain;
+            background-repeat: no-repeat;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .target-word {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 4px 12px;
+            border-radius: 8px;
+            border: 2px solid #e74c3c;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            white-space: nowrap;
+        }
+
+        /* Custom styles for typing feedback inside target word */
+        .char-correct {
+            color: #f1c40f; /* Yellow/Gold for correct hit */
+            text-shadow: 0 0 5px #f1c40f;
+        }
+        .char-incorrect {
+            color: #e74c3c; /* Red */
+            text-decoration: underline;
+        }
+        .char-pending {
+            color: #ecf0f1; /* White */
+        }
+
+        /* Effects */
+        .slash-effect {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 90 L90 10" stroke="%23fff" stroke-width="5" stroke-linecap="round"/><path d="M10 90 L90 10" stroke="%233498db" stroke-width="15" opacity="0.5" stroke-linecap="round" filter="blur(2px)"/></svg>');
+            background-size: contain;
+            pointer-events: none;
+            z-index: 20;
+            animation: slashFade 0.3s ease-out forwards;
+        }
+
+        @keyframes slashFade {
+            0% { opacity: 1; transform: scale(0.5); }
+            100% { opacity: 0; transform: scale(1.5); }
+        }
+
+        .damage-flash {
+            animation: flashRed 0.2s;
+        }
+
+        @keyframes flashRed {
+            0% { background-color: rgba(231, 76, 60, 0.4); }
+            100% { background-color: transparent; }
+        }
+
+        /* UI Overlays */
+        #game-ui {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none; /* Let clicks pass through to game area */
+        }
+        .ui-element {
+            pointer-events: auto; /* Re-enable for buttons/inputs if needed */
+        }
+
+        /* Hide the actual input field but keep it focusable */
+        #hidden-input {
+            opacity: 0;
+            position: absolute;
+            z-index: -1;
+        }
+        
+        /* Combo text popups */
+        .combo-popup {
+            position: absolute;
+            font-family: 'Press Start 2P', cursive;
+            color: #f1c40f;
+            text-shadow: 2px 2px #e74c3c;
+            font-size: 2rem;
+            pointer-events: none;
+            z-index: 30;
+            animation: floatUpFade 1s ease-out forwards;
+        }
+
+        @keyframes floatUpFade {
+            0% { transform: translateY(0) scale(0.8); opacity: 1; }
+            50% { transform: translateY(-30px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen m-0 p-0">
+
+    <!-- Game Container (Canvas-like relative area) -->
+    <div id="game-area" class="relative w-full max-w-4xl h-[80vh] bg-[#0f3460] overflow-hidden rounded-xl shadow-[0_0_30px_rgba(52,152,219,0.5)] border-4 border-[#16213e]" onclick="document.getElementById('hidden-input').focus()">
+        
+        <!-- Background Scenery (Parallax effect optional, static for now) -->
+        <div class="absolute inset-0 opacity-20 bg-[url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\" viewBox=\"0 0 100 100\"><rect width=\"100\" height=\"100\" fill=\"none\"/><path d=\"M0 100 L20 60 L40 80 L70 30 L100 90 L100 100 Z\" fill=\"%233498db\"/></svg>')] bg-repeat-x bg-bottom bg-[length:200px_100px]"></div>
+
+        <!-- Ninja Player -->
+        <div id="ninja-container">
+            <div id="ninja-sprite" class="ninja"></div>
+        </div>
+
+        <!-- Enemies will be injected here -->
+        <div id="enemies-layer" class="absolute inset-0"></div>
+
+        <!-- Start Screen overlay -->
+        <div id="start-screen" class="absolute inset-0 bg-black/80 z-40 flex flex-col items-center justify-center transition-opacity duration-300 ui-element backdrop-blur-sm">
+            <h1 class="game-font text-5xl md:text-7xl text-yellow-400 mb-4 text-center drop-shadow-[0_5px_5px_rgba(231,76,60,0.8)] leading-tight">NINJA<br>TYPING</h1>
+            <p class="text-xl text-blue-200 mb-8 max-w-md text-center">撃ち落とせ！迫り来る手裏剣ワード！<br>楽しくタイピング修行</p>
+            <button id="start-btn" class="game-font bg-red-600 hover:bg-red-500 text-white py-4 px-8 border-b-4 border-red-800 hover:border-red-600 rounded shadow-[0_0_15px_rgba(231,76,60,0.6)] transition-all transform hover:scale-105 active:scale-95 active:border-b-0 active:translate-y-1 text-xl">
+                START GAME
+            </button>
+            <p class="mt-6 text-slate-400 text-sm animate-pulse">Press Space or Click to Start</p>
+        </div>
+
+        <!-- UI Layer (Stats, Health, Combo) -->
+        <div id="game-ui" class="z-30 p-4 flex justify-between items-start">
+            <!-- Left Side: Score & Combo -->
+            <div class="flex flex-col gap-2">
+                <div class="bg-black/50 p-2 rounded border border-blue-500/50 flex items-center gap-2">
+                    <span class="text-blue-300 text-sm font-bold uppercase tracking-wider">Score</span>
+                    <span id="score-display" class="game-font text-xl text-yellow-400">0</span>
+                </div>
+                <div id="combo-container" class="opacity-0 transition-opacity">
+                    <span class="game-font text-2xl text-red-400 italic">Combo x<span id="combo-display">0</span></span>
+                </div>
+            </div>
+
+            <!-- Center: Level -->
+            <div class="bg-black/50 px-4 py-2 rounded-full border border-yellow-500/50">
+                <span class="game-font text-lg text-yellow-300">STAGE <span id="level-display">1</span></span>
+            </div>
+
+            <!-- Right Side: Health (Castle Wall Integrity) -->
+            <div class="flex flex-col items-end gap-1">
+                <span class="text-red-300 text-sm font-bold uppercase tracking-wider mb-1">Defense Wall</span>
+                <div class="w-48 h-6 bg-red-950 border-2 border-slate-700 rounded-sm overflow-hidden relative">
+                    <div id="health-bar" class="absolute top-0 left-0 h-full bg-red-500 w-full transition-all duration-200"></div>
+                    <!-- Wall texture overlay -->
+                    <div class="absolute inset-0 bg-[url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"10\"><rect width=\"20\" height=\"10\" fill=\"none\" stroke=\"rgba(0,0,0,0.3)\" stroke-width=\"1\"/><path d=\"M10 0 L10 10\" stroke=\"rgba(0,0,0,0.3)\"/></svg>')] mix-blend-overlay opacity-50"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden Input for keyboard capture -->
+        <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="absolute w-1 h-1 top-0 left-0 ui-element">
+        
+        <!-- Results Screen -->
+        <div id="result-screen" class="absolute inset-0 bg-black/90 z-50 hidden flex-col items-center justify-center p-8 text-center ui-element">
+            <h2 id="result-title" class="game-font text-4xl text-red-500 mb-6 drop-shadow-[0_2px_4px_rgba(255,255,255,0.3)]">DEFENSE FAILED</h2>
+            
+            <div class="bg-slate-800/80 border-2 border-blue-500/50 p-6 rounded-xl w-full max-w-md mb-8 shadow-2xl">
+                <div class="grid grid-cols-2 gap-y-4 gap-x-8 text-left">
+                    <div class="text-slate-400 font-bold uppercase text-sm">Final Score</div>
+                    <div id="result-score" class="game-font text-yellow-400 text-xl text-right">0</div>
+                    
+                    <div class="text-slate-400 font-bold uppercase text-sm">Max Combo</div>
+                    <div id="result-combo" class="game-font text-red-400 text-xl text-right">0</div>
+                    
+                    <div class="text-slate-400 font-bold uppercase text-sm">Words Defeated</div>
+                    <div id="result-words" class="game-font text-white text-xl text-right">0</div>
+                    
+                    <div class="text-slate-400 font-bold uppercase text-sm">Accuracy</div>
+                    <div id="result-accuracy" class="game-font text-green-400 text-xl text-right">0%</div>
+                </div>
+            </div>
+
+            <button id="restart-btn" class="game-font bg-blue-600 hover:bg-blue-500 text-white py-4 px-8 border-b-4 border-blue-800 hover:border-blue-600 rounded shadow-[0_0_15px_rgba(52,152,219,0.6)] transition-all transform hover:scale-105 active:scale-95 active:border-b-0 active:translate-y-1 text-xl">
+                PLAY AGAIN
+            </button>
+        </div>
+    </div>
+
+    <!-- Instruction footer -->
+    <div class="mt-4 text-slate-400 text-sm text-center">
+        上から降ってくる言葉をタイプして迎撃しろ！<br>
+        タイピングミスをせずに連続で打つとコンボボーナス！
+    </div>
+
+    <script>
+        // Game Constants & Config
+        const GAME_WIDTH = document.getElementById('game-area').clientWidth;
+        const GAME_HEIGHT = document.getElementById('game-area').clientHeight;
+        const MAX_HEALTH = 100;
+        
+        // Japanese Romaji Words for fun typing
+        const wordDictionary = {
+            easy: [
+                "sushi", "ninja", "samurai", "anime", "manga", "ramen", "tokyo", "kyoto", 
+                "fuji", "sakura", "kawaii", "bento", "matcha", "udon", "soba", "mochi"
+            ],
+            medium: [
+                "arigato", "sayonara", "konnichiwa", "gambatte", "sugoi", "yabai", "omatsuri",
+                "shinkansen", "harakiri", "kamikaze", "teriyaki", "wasabi", "origami", "karate", "judo"
+            ],
+            hard: [
+                "tsundoku", "komorebi", "wabisabi", "ikigai", "shinrinyoku", "karoshi", 
+                "omotenashi", "kaizen", "shoganai", "natsukashii", "yugen", "monoaware"
+            ]
+        };
+
+        // All words flat array for fallback
+        const allWords = [...wordDictionary.easy, ...wordDictionary.medium, ...wordDictionary.hard];
+
+        // State Variables
+        let gameState = 'start'; // 'start', 'playing', 'gameover'
+        let score = 0;
+        let health = MAX_HEALTH;
+        let combo = 0;
+        let maxCombo = 0;
+        let totalTyped = 0;
+        let correctTyped = 0;
+        let wordsDefeated = 0;
+        
+        let level = 1;
+        let baseFallSpeed = 1.0;
+        let spawnRate = 2000; // ms between spawns
+        
+        let activeEnemies = []; // Array to hold enemy objects
+        let lastTime = 0;
+        let spawnTimer = 0;
+        let animationFrameId;
+
+        // DOM Elements
+        const gameArea = document.getElementById('game-area');
+        const enemiesLayer = document.getElementById('enemies-layer');
+        const ninjaContainer = document.getElementById('ninja-container');
+        const ninjaSprite = document.getElementById('ninja-sprite');
+        const scoreDisplay = document.getElementById('score-display');
+        const levelDisplay = document.getElementById('level-display');
+        const healthBar = document.getElementById('health-bar');
+        const comboContainer = document.getElementById('combo-container');
+        const comboDisplay = document.getElementById('combo-display');
+        
+        const startScreen = document.getElementById('start-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const hiddenInput = document.getElementById('hidden-input');
+
+        // Utility: Get a random word based on level
+        function getRandomWord() {
+            let pool = wordDictionary.easy;
+            if (level > 2) pool = pool.concat(wordDictionary.medium);
+            if (level > 4) pool = pool.concat(wordDictionary.hard);
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        // Create a new enemy HTML element
+        function createEnemyElement(word, xPos) {
+            const container = document.createElement('div');
+            container.className = 'target-container';
+            container.style.left = `${xPos}px`;
+            // Ensure it doesn't spawn off-screen right
+            if (xPos > gameArea.clientWidth - 150) {
+                 container.style.left = `${gameArea.clientWidth - 150}px`;
+            }
+
+            const sprite = document.createElement('div');
+            sprite.className = 'enemy-sprite';
+
+            const wordDisplay = document.createElement('div');
+            wordDisplay.className = 'target-word';
+            
+            // Create spans for each character for color coding
+            for (let i = 0; i < word.length; i++) {
+                const charSpan = document.createElement('span');
+                charSpan.className = 'char-pending';
+                charSpan.innerText = word[i];
+                wordDisplay.appendChild(charSpan);
+            }
+
+            container.appendChild(sprite);
+            container.appendChild(wordDisplay);
+            enemiesLayer.appendChild(container);
+
+            return {
+                element: container,
+                wordDisplay: wordDisplay,
+                word: word,
+                typedIndex: 0,
+                yPos: -50,
+                xPos: parseFloat(container.style.left)
+            };
+        }
+
+        // Spawn a new enemy
+        function spawnEnemy() {
+            const word = getRandomWord();
+            // Random horizontal position (padding 50px sides)
+            const xPos = 50 + Math.random() * (gameArea.clientWidth - 150);
+            
+            const enemy = createEnemyElement(word, xPos);
+            activeEnemies.push(enemy);
+        }
+
+        // Visual Effect: Slash when defeating an enemy
+        function showSlashEffect(x, y) {
+            const slash = document.createElement('div');
+            slash.className = 'slash-effect';
+            slash.style.left = `${x - 20}px`;
+            slash.style.top = `${y - 20}px`;
+            enemiesLayer.appendChild(slash);
+            
+            setTimeout(() => {
+                if(slash.parentNode) slash.parentNode.removeChild(slash);
+            }, 300);
+        }
+
+        // Visual Effect: Combo Text Popup
+        function showComboPopup(x, y, currentCombo) {
+            if (currentCombo < 5) return; // Only show for decent combos
+            const popup = document.createElement('div');
+            popup.className = 'combo-popup';
+            popup.innerText = `${currentCombo} HIT!`;
+            popup.style.left = `${x}px`;
+            popup.style.top = `${y - 40}px`;
+            enemiesLayer.appendChild(popup);
+            
+            setTimeout(() => {
+                if(popup.parentNode) popup.parentNode.removeChild(popup);
+            }, 1000);
+        }
+
+        // Visual Effect: Damage flash on game area
+        function flashDamage() {
+            gameArea.classList.remove('damage-flash');
+            void gameArea.offsetWidth; // trigger reflow
+            gameArea.classList.add('damage-flash');
+        }
+
+        // Main Game Loop
+        function gameLoop(timestamp) {
+            if (gameState !== 'playing') return;
+
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // Spawn logic
+            spawnTimer += deltaTime;
+            if (spawnTimer >= spawnRate) {
+                spawnEnemy();
+                spawnTimer = 0;
+            }
+
+            // Update enemies
+            updateEnemies(deltaTime);
+
+            // Level progression based on score
+            checkLevelProgression();
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function updateEnemies(deltaTime) {
+            for (let i = activeEnemies.length - 1; i >= 0; i--) {
+                const enemy = activeEnemies[i];
+                
+                // Increase speed slightly based on level and individual progress
+                let currentSpeed = baseFallSpeed + (level * 0.2);
+                
+                // Move down
+                // (deltaTime / 16) normalizes roughly to 60fps frame time multiplier
+                enemy.yPos += currentSpeed * (deltaTime / 16.6); 
+                enemy.element.style.top = `${enemy.yPos}px`;
+
+                // Check collision with ground/bottom
+                if (enemy.yPos > gameArea.clientHeight - 80) {
+                    // Enemy hit the bottom - take damage
+                    takeDamage(10);
+                    removeEnemy(i);
+                    resetCombo();
+                }
+            }
+        }
+
+        function removeEnemy(index) {
+            const enemy = activeEnemies[index];
+            if (enemy && enemy.element.parentNode) {
+                enemy.element.parentNode.removeChild(enemy.element);
+            }
+            activeEnemies.splice(index, 1);
+        }
+
+        function takeDamage(amount) {
+            health -= amount;
+            if (health < 0) health = 0;
+            updateUI();
+            flashDamage();
+
+            if (health === 0) {
+                gameOver();
+            }
+        }
+
+        function resetCombo() {
+            combo = 0;
+            updateUI();
+        }
+
+        // Move ninja below the target being typed
+        function moveNinjaTo(targetX) {
+            // Center ninja below target
+            const targetCenter = targetX + 25; // approx half enemy width
+            ninjaContainer.style.left = `${targetCenter}px`;
+        }
+
+        // Handle Keyboard Input
+        function handleInput(e) {
+            if (gameState !== 'playing') return;
+            
+            // Get single character
+            const char = e.data || (e.inputType === "insertText" ? e.data : null);
+            
+            // Handle keydown for physical keyboards (fallback and spacing)
+            if (e.type === 'keydown') {
+                if (e.key === ' ' || e.key === 'Backspace' || e.key.length > 1) {
+                    e.preventDefault(); // Prevent scrolling/navigation
+                    return; // Ignore non-characters
+                }
+            }
+            
+            const inputChar = (char || e.key)?.toLowerCase();
+            if (!inputChar || inputChar.length > 1) return;
+
+            totalTyped++;
+            hiddenInput.value = ''; // clear immediately
+
+            let hit = false;
+            let activeTargetIndex = -1;
+
+            // 1. Check if we are already typing a specific word (it has typedIndex > 0)
+            const currentTargetIdx = activeEnemies.findIndex(e => e.typedIndex > 0);
+            
+            if (currentTargetIdx !== -1) {
+                // Must continue typing this word
+                activeTargetIndex = currentTargetIdx;
+            } else {
+                // 2. Find the lowest enemy whose first letter matches
+                let lowestY = -1000;
+                for (let i = 0; i < activeEnemies.length; i++) {
+                    if (activeEnemies[i].word[0] === inputChar) {
+                        if (activeEnemies[i].yPos > lowestY) {
+                            lowestY = activeEnemies[i].yPos;
+                            activeTargetIndex = i;
+                        }
+                    }
+                }
+            }
+
+            // Process the hit or miss
+            if (activeTargetIndex !== -1) {
+                const enemy = activeEnemies[activeTargetIndex];
+                const expectedChar = enemy.word[enemy.typedIndex];
+
+                if (inputChar === expectedChar) {
+                    // HIT!
+                    hit = true;
+                    correctTyped++;
+                    enemy.typedIndex++;
+                    
+                    // Visual update of word
+                    const charSpans = enemy.wordDisplay.children;
+                    charSpans[enemy.typedIndex - 1].className = 'char-correct';
+                    
+                    // Move Ninja & Animate
+                    moveNinjaTo(enemy.xPos);
+                    ninjaSprite.classList.remove('attack');
+                    void ninjaSprite.offsetWidth; // trigger reflow
+                    ninjaSprite.classList.add('attack');
+
+                    // Check if word complete
+                    if (enemy.typedIndex === enemy.word.length) {
+                        // Word Defeated!
+                        wordsDefeated++;
+                        combo++;
+                        if (combo > maxCombo) maxCombo = combo;
+                        
+                        // Score calculation based on word length, level, and combo
+                        let wordScore = enemy.word.length * 10 * level;
+                        if (combo > 5) wordScore = Math.floor(wordScore * 1.5);
+                        score += wordScore;
+
+                        showSlashEffect(enemy.xPos + 25, enemy.yPos + 25);
+                        showComboPopup(enemy.xPos, enemy.yPos, combo);
+                        removeEnemy(activeTargetIndex);
+                        
+                        // Heal slightly on kill to reward staying alive
+                        health = Math.min(MAX_HEALTH, health + 2);
+                    }
+                }
+            }
+
+            if (!hit) {
+                // MISS!
+                resetCombo();
+                // Find the enemy we *should* have typed (if we were locked on)
+                if (currentTargetIdx !== -1) {
+                     const errEnemy = activeEnemies[currentTargetIdx];
+                     const charSpans = errEnemy.wordDisplay.children;
+                     if(charSpans[errEnemy.typedIndex]) {
+                         charSpans[errEnemy.typedIndex].className = 'char-incorrect';
+                         // Shake effect on word
+                         errEnemy.element.style.transform = 'translateX(5px)';
+                         setTimeout(() => errEnemy.element.style.transform = 'translateX(0)', 100);
+                     }
+                }
+            }
+
+            updateUI();
+        }
+
+        function checkLevelProgression() {
+            // Increase level every 1000 points
+            const newLevel = Math.floor(score / 1000) + 1;
+            if (newLevel > level) {
+                level = newLevel;
+                // Increase difficulty
+                spawnRate = Math.max(800, spawnRate - 150); // spawn faster
+                
+                // Visual level up cue
+                levelDisplay.parentElement.classList.add('scale-125', 'bg-yellow-600/80');
+                setTimeout(() => {
+                    levelDisplay.parentElement.classList.remove('scale-125', 'bg-yellow-600/80');
+                }, 300);
+                updateUI();
+            }
+        }
+
+        function updateUI() {
+            scoreDisplay.innerText = score;
+            levelDisplay.innerText = level;
+            
+            // Health Bar
+            healthBar.style.width = `${(health / MAX_HEALTH) * 100}%`;
+            // Change color based on health
+            if (health < 30) healthBar.className = 'absolute top-0 left-0 h-full w-full transition-all duration-200 bg-red-600 animate-pulse';
+            else if (health < 60) healthBar.className = 'absolute top-0 left-0 h-full w-full transition-all duration-200 bg-orange-500';
+            else healthBar.className = 'absolute top-0 left-0 h-full w-full transition-all duration-200 bg-green-500';
+
+            // Combo
+            comboDisplay.innerText = combo;
+            if (combo > 1) {
+                comboContainer.style.opacity = '1';
+                comboContainer.style.transform = `scale(${Math.min(1.5, 1 + combo*0.05)})`;
+                setTimeout(() => { if(comboContainer) comboContainer.style.transform = 'scale(1)'; }, 100);
+            } else {
+                comboContainer.style.opacity = '0';
+            }
+        }
+
+        function startGame() {
+            // Reset all state
+            gameState = 'playing';
+            score = 0;
+            health = MAX_HEALTH;
+            combo = 0;
+            maxCombo = 0;
+            totalTyped = 0;
+            correctTyped = 0;
+            wordsDefeated = 0;
+            level = 1;
+            baseFallSpeed = 1.0;
+            spawnRate = 2000;
+            activeEnemies.forEach(e => {
+                if(e.element.parentNode) e.element.parentNode.removeChild(e.element);
+            });
+            activeEnemies = [];
+            
+            // Hide screens
+            startScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            gameArea.classList.remove('damage-flash');
+            
+            updateUI();
+            
+            // Start input focus
+            hiddenInput.value = '';
+            hiddenInput.focus();
+
+            // Start loop
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameState = 'gameover';
+            cancelAnimationFrame(animationFrameId);
+            
+            // Calculate accuracy
+            const accuracy = totalTyped === 0 ? 0 : Math.round((correctTyped / totalTyped) * 100);
+
+            // Populate Results
+            document.getElementById('result-score').innerText = score;
+            document.getElementById('result-combo').innerText = maxCombo;
+            document.getElementById('result-words').innerText = wordsDefeated;
+            document.getElementById('result-accuracy').innerText = `${accuracy}%`;
+
+            // Titles based on score
+            const titleEl = document.getElementById('result-title');
+            if (score > 5000) { titleEl.innerText = "NINJA MASTER"; titleEl.className = "game-font text-4xl text-yellow-400 mb-6 drop-shadow-[0_0_10px_rgba(241,196,15,0.8)]"; }
+            else if (score > 2000) { titleEl.innerText = "GOOD SHINOBI"; titleEl.className = "game-font text-4xl text-blue-400 mb-6"; }
+            else { titleEl.innerText = "DEFENSE FAILED"; titleEl.className = "game-font text-4xl text-red-500 mb-6 drop-shadow-[0_2px_4px_rgba(255,255,255,0.3)]"; }
+
+            // Show screen
+            resultScreen.classList.remove('hidden');
+            resultScreen.classList.add('flex');
+            hiddenInput.blur();
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+        
+        // Handle physical keyboard input directly via keydown to prevent issues on desktop
+        document.addEventListener('keydown', handleInput);
+        // Fallback for mobile virtual keyboards via input event
+        hiddenInput.addEventListener('input', handleInput);
+
+        // Keep focus
+        gameArea.addEventListener('click', () => {
+            if (gameState === 'playing') hiddenInput.focus();
+        });
+
+        // Start with spacebar from start screen
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ' && gameState === 'start') {
+                e.preventDefault();
+                startGame();
+            }
+        });
+
+        // Initial UI setup
+        updateUI();
+
+    </script>
+</body>
+</html>

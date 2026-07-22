@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Yusei+Magic&display=swap');
+@import 'tailwindcss';
+@import './tokens.css';
+
+@theme {
+  --font-display: 'Press Start 2P', cursive;
+  --font-body: 'Yusei Magic', sans-serif;
+  --color-sk-deep: #1a1a2e;
+  --color-sk-mid: #16213e;
+  --color-sk-panel: #0f3460;
+  --color-sk-red: #e74c3c;
+  --color-sk-blue: #3498db;
+  --color-sk-yellow: #f1c40f;
+  --color-sk-success: #22c55e;
+  --color-sk-warning: #f59e0b;
+  --color-sk-danger: #e74c3c;
+  --color-sk-muted: #94a3b8;
+  --color-sk-soft: #bfdbfe;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--color-text);
+    background-color: var(--color-bg-deep);
+    background-image: radial-gradient(
+      circle at center,
+      var(--color-bg-mid) 0%,
+      var(--color-bg-panel) 100%
+    );
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .bg-night-sky {
+    background-color: var(--color-bg-deep);
+    background-image: radial-gradient(
+      circle at center,
+      var(--color-bg-mid) 0%,
+      var(--color-bg-panel) 100%
+    );
+  }
+
+  .panel-glow {
+    box-shadow: var(--glow-blue);
+    border: 4px solid var(--color-border);
+  }
+
+  .text-glow-yellow {
+    text-shadow: 0 5px 5px rgb(231 76 60 / 0.8);
+  }
+}

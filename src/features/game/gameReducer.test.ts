@@ -5,13 +5,19 @@ import {
 } from './gameReducer'
 import type { GameTarget } from '../../types/game'
 import { gameConfig } from '../../config/gameConfig'
+import { createRomajiMatchState } from '../../utils/romajiMatcher'
 
 function makeTarget(overrides: Partial<GameTarget> = {}): GameTarget {
+  const matchState = createRomajiMatchState()
+
   return {
     id: 't1',
     problemId: 'p1',
     displayText: 'ねこ',
-    inputText: 'neko',
+    reading: 'ねこ',
+    displayRomaji: 'neko',
+    romajiPatterns: ['neko'],
+    matchState,
     typedLength: 0,
     xPercent: 40,
     yPosition: -50,
@@ -28,11 +34,13 @@ describe('gameReducer', () => {
       type: 'START_GAME',
       difficulty: 'ninja',
       maxDefense: 100,
+      startedAtMs: 1000,
     })
     expect(started.status).toBe('playing')
     expect(started.difficulty).toBe('ninja')
     expect(started.score).toBe(0)
     expect(started.activeTargets).toEqual([])
+    expect(started.gameStartedAtMs).toBe(1000)
 
     const dirty = gameReducer(started, {
       type: 'SPAWN_TARGET',
@@ -42,6 +50,7 @@ describe('gameReducer', () => {
       type: 'RESET_GAME',
       difficulty: 'master',
       maxDefense: 100,
+      startedAtMs: 2000,
     })
     expect(reset.difficulty).toBe('master')
     expect(reset.activeTargets).toEqual([])
@@ -54,11 +63,22 @@ describe('gameReducer', () => {
       type: 'START_GAME',
       difficulty: 'ninja',
       maxDefense: 100,
+      startedAtMs: 1000,
     })
     state = gameReducer(state, { type: 'SPAWN_TARGET', target: makeTarget() })
-    state = gameReducer(state, { type: 'TYPE_CORRECT', targetId: 't1' })
+    state = gameReducer(state, {
+      type: 'TYPE_CORRECT',
+      targetId: 't1',
+      typedLength: 1,
+      matchState: {
+        confirmedLength: 1,
+        activePaths: [{ moraIndex: 0, partial: 'n' }],
+        isComplete: false,
+      },
+    })
     expect(state.lockedTargetId).toBe('t1')
     expect(state.activeTargets[0]?.typedLength).toBe(1)
+    expect(state.correctChars).toBe(1)
     expect(state.combo).toBe(0)
 
     state = gameReducer(state, { type: 'TYPE_MISS' })
@@ -74,6 +94,7 @@ describe('gameReducer', () => {
       type: 'START_GAME',
       difficulty: 'ninja',
       maxDefense: gameConfig.maxHealth,
+      startedAtMs: 1000,
     })
     state = gameReducer(state, { type: 'SPAWN_TARGET', target: makeTarget() })
     state = {
@@ -99,6 +120,7 @@ describe('gameReducer', () => {
       type: 'START_GAME',
       difficulty: 'trainee',
       maxDefense: 5,
+      startedAtMs: 1000,
     })
     state = gameReducer(state, { type: 'SPAWN_TARGET', target: makeTarget() })
     state = gameReducer(state, {

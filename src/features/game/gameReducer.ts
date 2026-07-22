@@ -20,7 +20,9 @@ export function createInitialGameState(
     lockedTargetId: null,
     lastProblemId: null,
     typedCount: 0,
+    correctChars: 0,
     missCount: 0,
+    gameStartedAtMs: null,
     showMissFeedback: false,
     showStageUpFlash: false,
   }
@@ -43,6 +45,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...createInitialGameState(action.difficulty, action.maxDefense),
         status: 'playing',
+        gameStartedAtMs: action.startedAtMs,
       }
 
     case 'SPAWN_TARGET':
@@ -58,15 +61,16 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         return state
       }
 
-      const typedLength = target.typedLength + 1
       return {
         ...state,
         typedCount: state.typedCount + 1,
+        correctChars: state.correctChars + 1,
         lockedTargetId: action.targetId,
         showMissFeedback: false,
         activeTargets: mapTarget(state.activeTargets, action.targetId, (item) => ({
           ...item,
-          typedLength,
+          typedLength: action.typedLength,
+          matchState: action.matchState,
           state: 'locked',
         })),
       }
@@ -106,7 +110,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         activeTargets: mapTarget(state.activeTargets, action.targetId, (item) => ({
           ...item,
           state: 'destroyed',
-          typedLength: item.inputText.length,
+          typedLength: item.displayRomaji.length,
+          matchState: {
+            ...item.matchState,
+            confirmedLength: item.displayRomaji.length,
+            isComplete: true,
+            activePaths: [],
+          },
         })),
       }
     }

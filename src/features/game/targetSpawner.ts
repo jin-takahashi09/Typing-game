@@ -1,7 +1,9 @@
 import type { DifficultyConfig } from '../../config/difficultyConfig'
 import { gameConfig } from '../../config/gameConfig'
-import type { BasicTypingProblem } from '../../types/game'
+import type { TypingProblem } from '../../types/typing'
 import type { GameTarget } from '../../types/game'
+import { createRomajiMatchState } from '../../utils/romajiMatcher'
+import { getRepresentativeRomaji } from '../../utils/selectTypingProblem'
 
 export function canSpawnTarget(
   activeCount: number,
@@ -24,7 +26,7 @@ export function getFallSpeed(config: DifficultyConfig, stage: number): number {
 }
 
 export interface CreateTargetParams {
-  problem: BasicTypingProblem
+  problem: TypingProblem
   speed: number
   existingXPercents: number[]
   random?: () => number
@@ -75,12 +77,18 @@ export function createTarget(params: CreateTargetParams): GameTarget {
     },
   } = params
 
+  const displayRomaji = getRepresentativeRomaji(problem)
+  const matchState = createRomajiMatchState()
+
   return {
     id: idFactory(),
     problemId: problem.id,
     displayText: problem.displayText,
-    inputText: problem.inputText.toLowerCase(),
-    typedLength: 0,
+    reading: problem.reading,
+    displayRomaji,
+    romajiPatterns: problem.romajiPatterns.map((pattern) => pattern.toLowerCase()),
+    matchState,
+    typedLength: matchState.confirmedLength,
     xPercent: pickXPercent(existingXPercents, random),
     yPosition: gameConfig.spawnYPx,
     speed,

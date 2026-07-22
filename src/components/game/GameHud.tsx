@@ -4,6 +4,9 @@ interface GameHudProps {
   stage: number
   difficultyLabel: string
   showStageUp: boolean
+  elapsedLabel: string
+  wpm: number
+  accuracy: number
 }
 
 export function GameHud({
@@ -12,6 +15,9 @@ export function GameHud({
   stage,
   difficultyLabel,
   showStageUp,
+  elapsedLabel,
+  wpm,
+  accuracy,
 }: GameHudProps) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 p-3 md:p-4">
@@ -34,6 +40,11 @@ export function GameHud({
           <span className="font-display text-xl italic text-[var(--color-accent-red)] md:text-2xl">
             Combo x{combo}
           </span>
+        </div>
+        <div className="rounded border border-[var(--color-border-blue)] bg-black/50 px-2 py-1 text-[0.65rem] text-[var(--color-text-soft)] md:text-xs">
+          <span className="mr-2">{elapsedLabel}</span>
+          <span className="mr-2">WPM {wpm.toFixed(1)}</span>
+          <span>ACC {accuracy.toFixed(1)}%</span>
         </div>
       </div>
 

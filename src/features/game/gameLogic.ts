@@ -1,6 +1,7 @@
 import type { GameTarget } from '../../types/game'
+import type { TypingProblem } from '../../types/typing'
 import type { StageUpCondition } from '../../config/difficultyConfig'
-import { simpleInputMatcher } from '../../utils/inputMatcher'
+import { matchesFirstChar } from '../../utils/romajiMatcher'
 
 export function findMostDangerousTargetId(
   candidates: GameTarget[],
@@ -33,7 +34,7 @@ export function findLockCandidates(
     (target) =>
       target.state !== 'destroyed' &&
       target.typedLength === 0 &&
-      simpleInputMatcher.matches(target.inputText, 0, lower),
+      matchesFirstChar(toTypingProblem(target), lower),
   )
 }
 
@@ -52,4 +53,16 @@ export function shouldAdvanceStage(
 
 export function isTypingKey(key: string): boolean {
   return /^[a-zA-Z]$/.test(key)
+}
+
+function toTypingProblem(target: GameTarget): TypingProblem {
+  return {
+    id: target.problemId,
+    displayText: target.displayText,
+    reading: target.reading,
+    romajiPatterns: target.romajiPatterns,
+    difficulty: 'ninja',
+    category: 'basic',
+    baseScore: target.baseScore,
+  }
 }

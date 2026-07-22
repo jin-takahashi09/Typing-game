@@ -9,7 +9,7 @@ todos:
     content: "Phase 2: タイトル〜ゲーム〜リザルト、落下/入力/ロックオン/攻撃/ダメージ"
     status: completed
   - id: phase-3-romaji-stats
-    content: "Phase 3: 日本語問題・ローマ字判定・ミス/WPM/正確率・詳細統計"
+    content: "Phase 3: 日本語+ローマ字判定・romajiMatcher・WPM/正確率・問題データ更新"
     status: pending
   - id: phase-4-records
     content: "Phase 4: localStorage・最高記録・履歴・前回比較・記録画面"

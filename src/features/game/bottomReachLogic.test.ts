@@ -9,8 +9,15 @@ function target(id: string, state: GameTarget['state'] = 'falling'): GameTarget 
   return {
     id,
     problemId: 'p',
-    displayText: 'test',
-    inputText: 'test',
+    displayText: 'てすと',
+    reading: 'てすと',
+    displayRomaji: 'tesuto',
+    romajiPatterns: ['tesuto'],
+    matchState: {
+      confirmedLength: 0,
+      activePaths: [{ moraIndex: 0, partial: '' }],
+      isComplete: false,
+    },
     typedLength: 0,
     xPercent: 50,
     yPosition: -50,

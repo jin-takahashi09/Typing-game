@@ -1,24 +1,18 @@
 import type { DifficultyId } from './app'
-import type { ProblemCategory } from '../config/difficultyConfig'
+import type { RomajiMatchState } from './typing'
 
 export type GameStatus = 'ready' | 'playing' | 'gameover'
 export type TargetState = 'falling' | 'locked' | 'destroyed'
 export type NinjaAnimationState = 'idle' | 'attack' | 'damage'
 
-export interface BasicTypingProblem {
-  id: string
-  displayText: string
-  inputText: string
-  difficulty: DifficultyId
-  category: ProblemCategory
-  baseScore: number
-}
-
 export interface GameTarget {
   id: string
   problemId: string
   displayText: string
-  inputText: string
+  reading: string
+  displayRomaji: string
+  romajiPatterns: readonly string[]
+  matchState: RomajiMatchState
   typedLength: number
   xPercent: number
   /** 生成時の初期 Y。判定用の現在 Y は targetsRef が正 */
@@ -41,7 +35,9 @@ export interface GameState {
   lockedTargetId: string | null
   lastProblemId: string | null
   typedCount: number
+  correctChars: number
   missCount: number
+  gameStartedAtMs: number | null
   showMissFeedback: boolean
   showStageUpFlash: boolean
 }
@@ -52,12 +48,23 @@ export interface GameResultSummary {
   stage: number
   destroyedTargets: number
   maxCombo: number
+  typedChars: number
+  correctChars: number
+  missCount: number
+  elapsedMs: number
+  wpm: number
+  accuracy: number
 }
 
 export type GameAction =
-  | { type: 'START_GAME'; difficulty: DifficultyId; maxDefense: number }
+  | { type: 'START_GAME'; difficulty: DifficultyId; maxDefense: number; startedAtMs: number }
   | { type: 'SPAWN_TARGET'; target: GameTarget }
-  | { type: 'TYPE_CORRECT'; targetId: string }
+  | {
+      type: 'TYPE_CORRECT'
+      targetId: string
+      typedLength: number
+      matchState: RomajiMatchState
+    }
   | { type: 'TYPE_MISS' }
   | { type: 'CLEAR_MISS_FEEDBACK' }
   | {
@@ -71,4 +78,4 @@ export type GameAction =
   | { type: 'TARGET_REACHED_BOTTOM'; targetId: string; damage: number }
   | { type: 'CLEAR_STAGE_UP_FLASH' }
   | { type: 'END_GAME' }
-  | { type: 'RESET_GAME'; difficulty: DifficultyId; maxDefense: number }
+  | { type: 'RESET_GAME'; difficulty: DifficultyId; maxDefense: number; startedAtMs: number }

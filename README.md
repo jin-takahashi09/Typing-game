@@ -20,6 +20,6 @@ npm run build
 
 ## 現状
 
-Phase 1（プロジェクト基盤・タイトル／難易度選択の骨格）まで実装済み。
+Phase 2（基本ゲーム：落下・入力・撃破・リザルト）まで実装済み。Phase 2 の変更は未コミット。
 
 参考デザイン: `sample/simple_typing_game.html`（変更しない）

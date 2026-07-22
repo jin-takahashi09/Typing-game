@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: phase-2-core-game
     content: "Phase 2: タイトル〜ゲーム〜リザルト、落下/入力/ロックオン/攻撃/ダメージ"
-    status: pending
+    status: completed
   - id: phase-3-romaji-stats
     content: "Phase 3: 日本語問題・ローマ字判定・ミス/WPM/正確率・詳細統計"
     status: pending

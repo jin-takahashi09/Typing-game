@@ -8,6 +8,8 @@ import type { DifficultyId } from '../types/app'
 
 interface DifficultyScreenProps {
   onBack: () => void
+  onStart: (difficulty: DifficultyId) => void
+  initialDifficulty?: DifficultyId
 }
 
 const accentByDifficulty: Record<
@@ -31,8 +33,14 @@ const accentByDifficulty: Record<
   },
 }
 
-export function DifficultyScreen({ onBack }: DifficultyScreenProps) {
-  const [selected, setSelected] = useState<DifficultyId>('ninja')
+export function DifficultyScreen({
+  onBack,
+  onStart,
+  initialDifficulty,
+}: DifficultyScreenProps) {
+  const [selected, setSelected] = useState<DifficultyId | null>(
+    initialDifficulty ?? null,
+  )
 
   return (
     <main className="flex min-h-screen flex-col items-center px-4 py-10">
@@ -68,7 +76,9 @@ export function DifficultyScreen({ onBack }: DifficultyScreenProps) {
                   'duration-[var(--duration-normal)] focus-visible:outline focus-visible:outline-2',
                   'focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent-yellow)]',
                   accent.border,
-                  isSelected ? `${accent.glow} scale-[1.02] bg-black/55` : 'opacity-85 hover:opacity-100',
+                  isSelected
+                    ? `${accent.glow} scale-[1.02] bg-black/55`
+                    : 'opacity-85 hover:opacity-100',
                 ].join(' ')}
               >
                 <span
@@ -121,17 +131,21 @@ export function DifficultyScreen({ onBack }: DifficultyScreenProps) {
           </GameButton>
           <GameButton
             variant="secondary"
-            disabled
-            aria-disabled="true"
-            title="Phase 2 でゲーム画面へ接続します"
+            size="lg"
+            disabled={selected === null}
+            onClick={() => {
+              if (selected) {
+                onStart(selected)
+              }
+            }}
           >
             この難易度で開始
-            <span className="ml-2 text-[0.65rem] opacity-80">（Phase 2）</span>
           </GameButton>
         </div>
 
         <p className="mt-6 text-center text-sm text-[var(--color-text-muted)]">
-          選択中: {difficultyConfigs[selected].displayName}
+          選択中:{' '}
+          {selected ? difficultyConfigs[selected].displayName : '未選択'}
         </p>
       </section>
     </main>

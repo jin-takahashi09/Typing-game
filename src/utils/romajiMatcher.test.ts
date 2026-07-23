@@ -144,6 +144,43 @@ describe('romajiMatcher', () => {
     expect(last.isComplete).toBe(true)
   })
 
+  it('accepts long vowel mark as previous vowel', () => {
+    const ramen = makeProblem({
+      id: 'choon-ramen',
+      displayText: 'らーめん',
+      reading: 'らーめん',
+      romajiPatterns: ['ramen'],
+    })
+    const geemu = makeProblem({
+      id: 'choon-geemu',
+      displayText: 'ゲーム',
+      reading: 'げーむ',
+      romajiPatterns: ['geemu'],
+    })
+    const koohii = makeProblem({
+      id: 'choon-koohii',
+      displayText: 'コーヒー',
+      reading: 'こーひー',
+      romajiPatterns: ['koohii'],
+    })
+
+    const ramenTyped = typeWord(ramen, 'ramen')
+    expect(ramenTyped.ok).toBe(true)
+    expect(ramenTyped.state.isComplete).toBe(true)
+
+    const raamenTyped = typeWord(ramen, 'raamen')
+    expect(raamenTyped.ok).toBe(true)
+    expect(raamenTyped.state.isComplete).toBe(true)
+
+    const geemuTyped = typeWord(geemu, 'geemu')
+    expect(geemuTyped.ok).toBe(true)
+    expect(geemuTyped.state.isComplete).toBe(true)
+
+    const koohiiTyped = typeWord(koohii, 'koohii')
+    expect(koohiiTyped.ok).toBe(true)
+    expect(koohiiTyped.state.isComplete).toBe(true)
+  })
+
   it('completes every representative romaji pattern in the problem bank', () => {
     const failures: string[] = []
     for (const problem of typingProblems) {

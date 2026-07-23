@@ -13,6 +13,7 @@ import { HowToScreen } from './screens/HowToScreen'
 import { loadStoredData, saveStoredData } from './utils/storage'
 import { getSaveErrorMessage, persistPlayResult } from './utils/persistPlayResult'
 import { applyMotionPreference, resolveReducedMotion } from './utils/motionPreference'
+import { clearPlayRecords } from './utils/clearPlayRecords'
 import { getSoundManager } from './audio/SoundManager'
 
 const initialLoad = loadStoredData()
@@ -23,6 +24,7 @@ export default function App() {
   const [result, setResult] = useState<ResultViewModel | null>(null)
   const [storedData, setStoredData] = useState<StoredAppData>(initialLoad.data)
   const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null)
+  const [recordsClearError, setRecordsClearError] = useState<string | null>(null)
   const [gameSession, setGameSession] = useState(0)
   const savedPlaySessionsRef = useRef<Set<number>>(new Set())
   const storedDataRef = useRef(storedData)
@@ -72,6 +74,22 @@ export default function App() {
     } else {
       setSettingsSaveError(null)
     }
+  }, [])
+
+  const handleClearRecords = useCallback((): boolean => {
+    const next = clearPlayRecords(storedDataRef.current)
+    storedDataRef.current = next
+    setStoredData(next)
+    const saveResult = saveStoredData(next)
+    if (!saveResult.ok) {
+      setRecordsClearError(
+        getSaveErrorMessage(saveResult.error) ??
+          '記録の削除に失敗しました。画面上ではクリアされていますが、再読み込みで戻る可能性があります。',
+      )
+      return false
+    }
+    setRecordsClearError(null)
+    return true
   }, [])
 
   const unlockAudio = useCallback(async () => {
@@ -190,7 +208,12 @@ export default function App() {
       return (
         <RecordsScreen
           data={storedData}
-          onBack={() => setScreen('title')}
+          clearError={recordsClearError}
+          onBack={() => {
+            setRecordsClearError(null)
+            setScreen('title')
+          }}
+          onClearRecords={handleClearRecords}
         />
       )
     case 'settings':

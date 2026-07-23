@@ -12,6 +12,7 @@ const YOON_KANA = new Set([
   'びゃ', 'びゅ', 'びょ',
   'ぴゃ', 'ぴゅ', 'ぴょ',
   'てぃ', 'でぃ', 'うぃ', 'うぇ', 'うぉ',
+  'ふぁ', 'ふぃ', 'ふぇ', 'ふぉ',
 ])
 
 const VOWEL_KANA = new Set(['あ', 'い', 'う', 'え', 'お'])
@@ -68,7 +69,6 @@ const BASIC_ROMAJI: Record<string, string[]> = {
   だ: ['da'], ぢ: ['ji', 'zi'], づ: ['zu'], で: ['de'], ど: ['do'],
   ば: ['ba'], び: ['bi'], ぶ: ['bu'], べ: ['be'], ぼ: ['bo'],
   ぱ: ['pa'], ぴ: ['pi'], ぷ: ['pu'], ぺ: ['pe'], ぽ: ['po'],
-  ー: ['-'],
 }
 
 const YOON_ROMAJI: Record<string, string[]> = {
@@ -84,6 +84,7 @@ const YOON_ROMAJI: Record<string, string[]> = {
   びゃ: ['bya'], びゅ: ['byu'], びょ: ['byo'],
   ぴゃ: ['pya'], ぴゅ: ['pyu'], ぴょ: ['pyo'],
   てぃ: ['ti'], でぃ: ['di'], うぃ: ['wi'], うぇ: ['we'], うぉ: ['wo'],
+  ふぁ: ['fa'], ふぃ: ['fi'], ふぇ: ['fe', 'fue'], ふぉ: ['fo'],
 }
 
 function uniqueOptions(options: string[]): string[] {
@@ -101,8 +102,31 @@ function consonantOf(option: string): string | null {
   return null
 }
 
+function trailingVowel(option: string): string | null {
+  if (option.length === 0) {
+    return null
+  }
+  const last = option[option.length - 1]!
+  if ('aiueo'.includes(last)) {
+    return last
+  }
+  return null
+}
+
+/** 長音「ー」は直前モーラの末尾母音として扱う（例: らー → ra + a） */
+function getChoonOptions(previousOptions: string[]): string[] {
+  const vowels = new Set<string>()
+  for (const option of previousOptions) {
+    const vowel = trailingVowel(option)
+    if (vowel) {
+      vowels.add(vowel)
+    }
+  }
+  return [...vowels]
+}
+
 function getBaseOptions(kana: string): string[] {
-  if (kana === 'っ') {
+  if (kana === 'っ' || kana === 'ー') {
     return []
   }
   if (YOON_ROMAJI[kana]) {
@@ -157,6 +181,9 @@ export function buildMoraNodes(
           ? getBaseOptions(morae[index + 1]!)
           : []
       node.options = getSmallTsuOptions(nextOptions)
+    } else if (node.kana === 'ー') {
+      const previousOptions = index > 0 ? nodes[index - 1]!.options : []
+      node.options = getChoonOptions(previousOptions)
     } else if (node.kana === 'ん') {
       node.options = getNOptions(nextKana)
     } else {
@@ -181,6 +208,13 @@ function alignDisplaySlices(nodes: MoraNode[], displayRomaji: string): void {
         matched = true
         break
       }
+    }
+
+    // 代表ローマ字で長音を省略している場合（らーめん → ramen）は幅0
+    if (!matched && node.kana === 'ー') {
+      node.displayStart = position
+      node.displayEnd = position
+      matched = true
     }
 
     if (!matched && node.options.length > 0) {

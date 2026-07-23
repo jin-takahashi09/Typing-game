@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { GameButton } from '../components/common/GameButton'
+import { useFocusOnMount } from '../hooks/useFocusTrap'
 
 interface HowToScreenProps {
   onStartTraining: () => void
@@ -6,10 +8,17 @@ interface HowToScreenProps {
 }
 
 export function HowToScreen({ onStartTraining, onBack }: HowToScreenProps) {
+  const headingRef = useRef<HTMLHeadingElement | null>(null)
+  useFocusOnMount(headingRef)
+
   return (
-    <main className="flex min-h-screen flex-col items-center px-4 py-10">
-      <section className="panel-glow w-full max-w-2xl rounded-[var(--radius-xl)] bg-black/90 px-6 py-8 md:px-10">
-        <h1 className="font-display mb-6 text-center text-3xl text-[var(--color-accent-yellow)]">
+    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
+      <section className="panel-glow w-full max-w-2xl rounded-[var(--radius-xl)] bg-black/90 px-4 py-6 sm:px-6 sm:py-8 md:px-10">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="font-display mb-6 text-center text-2xl text-[var(--color-accent-yellow)] outline-none sm:text-3xl"
+        >
           遊び方
         </h1>
 

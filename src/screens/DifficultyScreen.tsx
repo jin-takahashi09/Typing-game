@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   difficultyConfigs,
   difficultyOrder,
 } from '../config/difficultyConfig'
 import { GameButton } from '../components/common/GameButton'
+import { useFocusOnMount } from '../hooks/useFocusTrap'
 import type { DifficultyId } from '../types/app'
 
 interface DifficultyScreenProps {
@@ -38,24 +39,30 @@ export function DifficultyScreen({
   onStart,
   initialDifficulty,
 }: DifficultyScreenProps) {
+  const headingRef = useRef<HTMLHeadingElement | null>(null)
+  useFocusOnMount(headingRef)
   const [selected, setSelected] = useState<DifficultyId | null>(
     initialDifficulty ?? null,
   )
 
   return (
-    <main className="flex min-h-screen flex-col items-center px-4 py-10">
-      <section className="panel-glow w-full max-w-4xl rounded-[var(--radius-xl)] bg-[var(--color-bg-panel)] px-4 py-8 md:px-8">
-        <header className="mb-8 text-center">
-          <h1 className="font-display mb-3 text-2xl text-[var(--color-accent-yellow)] md:text-3xl">
+    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
+      <section className="panel-glow w-full max-w-4xl rounded-[var(--radius-xl)] bg-[var(--color-bg-panel)] px-3 py-6 sm:px-4 sm:py-8 md:px-8">
+        <header className="mb-6 text-center sm:mb-8">
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="font-display mb-3 text-2xl text-[var(--color-accent-yellow)] outline-none md:text-3xl"
+          >
             難易度選択
           </h1>
-          <p className="text-[var(--color-text-soft)]">
+          <p className="text-sm text-[var(--color-text-soft)] sm:text-base">
             修行の道を選べ。カードを選ぶと選択状態が分かります。
           </p>
         </header>
 
         <div
-          className="mb-8 grid gap-4 md:grid-cols-3"
+          className="mb-8 grid gap-3 sm:gap-4 md:grid-cols-3"
           role="radiogroup"
           aria-label="難易度"
         >
@@ -72,7 +79,7 @@ export function DifficultyScreen({
                 aria-checked={isSelected}
                 onClick={() => setSelected(id)}
                 className={[
-                  'rounded-[var(--radius-lg)] border-2 bg-black/40 p-5 text-left transition-all',
+                  'rounded-[var(--radius-lg)] border-2 bg-black/40 p-4 text-left transition-all sm:p-5',
                   'duration-[var(--duration-normal)] focus-visible:outline focus-visible:outline-2',
                   'focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent-yellow)]',
                   accent.border,
@@ -117,7 +124,7 @@ export function DifficultyScreen({
                 </dl>
                 {isSelected && (
                   <p className="mt-4 font-display text-xs text-[var(--color-accent-yellow)]">
-                    SELECTED
+                    選択中
                   </p>
                 )}
               </button>
@@ -125,7 +132,7 @@ export function DifficultyScreen({
           })}
         </div>
 
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center">
           <GameButton variant="ghost" onClick={onBack}>
             タイトルへ戻る
           </GameButton>
@@ -135,7 +142,7 @@ export function DifficultyScreen({
             disabled={selected === null}
             onClick={() => {
               if (selected) {
-                onStart(selected)
+                void onStart(selected)
               }
             }}
           >
@@ -143,7 +150,7 @@ export function DifficultyScreen({
           </GameButton>
         </div>
 
-        <p className="mt-6 text-center text-sm text-[var(--color-text-muted)]">
+        <p className="mt-6 text-center text-sm text-[var(--color-text-muted)]" aria-live="polite">
           選択中:{' '}
           {selected ? difficultyConfigs[selected].displayName : '未選択'}
         </p>

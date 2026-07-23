@@ -133,4 +133,29 @@ describe('gameReducer', () => {
     expect(state.activeTargets).toEqual([])
     expect(state.combo).toBe(0)
   })
+
+  it('pauses and resumes without accepting pause from non-playing states', () => {
+    let state = gameReducer(createInitialGameState('ninja', 100), {
+      type: 'START_GAME',
+      difficulty: 'ninja',
+      maxDefense: 100,
+      startedAtMs: 1000,
+    })
+
+    state = gameReducer(state, { type: 'PAUSE_GAME', atMs: 2000 })
+    expect(state.status).toBe('paused')
+    expect(state.pausedAtMs).toBe(2000)
+
+    state = gameReducer(state, { type: 'PAUSE_GAME', atMs: 2500 })
+    expect(state.pausedAtMs).toBe(2000)
+
+    state = gameReducer(state, { type: 'RESUME_GAME', atMs: 4000 })
+    expect(state.status).toBe('playing')
+    expect(state.pausedTotalMs).toBe(2000)
+    expect(state.pausedAtMs).toBeNull()
+
+    const ready = createInitialGameState('ninja', 100)
+    expect(gameReducer(ready, { type: 'RESUME_GAME', atMs: 1 }).status).toBe('ready')
+  })
 })
+

@@ -7,12 +7,16 @@ interface TitleScreenProps {
   storedData: StoredAppData
   onStartTraining: () => void
   onOpenRecords: () => void
+  onOpenSettings: () => void
+  onOpenHowTo: () => void
 }
 
 export function TitleScreen({
   storedData,
   onStartTraining,
   onOpenRecords,
+  onOpenSettings,
+  onOpenHowTo,
 }: TitleScreenProps) {
   const hasBestScores = difficultyOrder.some(
     (id) => storedData.bestByDifficulty[id] !== null,
@@ -89,13 +93,11 @@ export function TitleScreen({
           <GameButton variant="secondary" onClick={onOpenRecords}>
             プレイ記録
           </GameButton>
-          <GameButton variant="ghost" disabled aria-disabled="true">
+          <GameButton variant="ghost" onClick={onOpenHowTo}>
             遊び方
-            <span className="ml-2 text-[0.65rem] opacity-80">（準備中）</span>
           </GameButton>
-          <GameButton variant="ghost" disabled aria-disabled="true">
+          <GameButton variant="ghost" onClick={onOpenSettings}>
             設定
-            <span className="ml-2 text-[0.65rem] opacity-80">（準備中）</span>
           </GameButton>
         </nav>
       </section>

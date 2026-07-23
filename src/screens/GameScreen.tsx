@@ -15,6 +15,7 @@ import { NinjaPlayer } from '../components/game/NinjaPlayer'
 import { FallingTarget } from '../components/game/FallingTarget'
 import { SlashEffect } from '../components/game/SlashEffect'
 import { ComboDisplay } from '../components/game/ComboDisplay'
+import { PauseOverlay } from '../components/game/PauseOverlay'
 import {
   createInitialGameState,
   gameReducer,
@@ -43,7 +44,9 @@ import {
   buildTypingStats,
   formatElapsedTime,
 } from '../utils/calculateTypingStats'
+import { computeElapsedMs } from '../utils/elapsedTime'
 import { processRomajiInput } from '../utils/romajiMatcher'
+import { getSoundManager } from '../audio/SoundManager'
 import type { DifficultyId } from '../types/app'
 import type { GameResultSummary, GameTarget, NinjaAnimationState } from '../types/game'
 import type { TypingProblem } from '../types/typing'
@@ -64,7 +67,14 @@ interface ComboPopup {
 interface GameScreenProps {
   difficulty: DifficultyId
   playSessionId: number
+  volume: number
+  muted: boolean
+  reducedMotion: boolean
+  onVolumeChange: (volume: number) => void
+  onMutedChange: (muted: boolean) => void
   onGameOver: (result: GameResultSummary, playSessionId: number) => void
+  onRetry: () => void
+  onAbandonToTitle: () => void
 }
 
 function toTypingProblem(target: GameTarget, difficulty: DifficultyId): TypingProblem {
@@ -79,7 +89,18 @@ function toTypingProblem(target: GameTarget, difficulty: DifficultyId): TypingPr
   }
 }
 
-export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreenProps) {
+export function GameScreen({
+  difficulty,
+  playSessionId,
+  volume,
+  muted,
+  reducedMotion,
+  onVolumeChange,
+  onMutedChange,
+  onGameOver,
+  onRetry,
+  onAbandonToTitle,
+}: GameScreenProps) {
   const config = useMemo(() => getDifficultyConfig(difficulty), [difficulty])
   const [state, dispatch] = useReducer(gameReducer, undefined, () => ({
     ...createInitialGameState(difficulty, gameConfig.maxHealth),
@@ -88,7 +109,6 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
   }))
 
   const [hudNowMs, setHudNowMs] = useState(() => Date.now())
-
   const [areaHeight, setAreaHeight] = useState(0)
   const [damaged, setDamaged] = useState(false)
   const [ninjaX, setNinjaX] = useState(50)
@@ -103,6 +123,7 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
   const endedRef = useRef(false)
   const sessionIdRef = useRef(0)
   const isPlayingRef = useRef(true)
+  const soundStartedRef = useRef(false)
 
   useEffect(() => {
     stateRef.current = state
@@ -113,6 +134,33 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
     isPlayingRef.current = true
     endedRef.current = false
   }, [])
+
+  useEffect(() => {
+    const sound = getSoundManager()
+    void sound.unlock().then(() => {
+      if (soundStartedRef.current) {
+        return
+      }
+      soundStartedRef.current = true
+      sound.setVolume(volume)
+      sound.setMuted(muted)
+      sound.playSfx('gameStart')
+      sound.startBgm('game')
+    })
+
+    return () => {
+      sound.stopBgm()
+      soundStartedRef.current = false
+    }
+    // Session-scoped audio bootstrap; volume/mute sync is handled separately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- playSessionId is the remount boundary
+  }, [playSessionId])
+
+  useEffect(() => {
+    const sound = getSoundManager()
+    sound.setVolume(volume)
+    sound.setMuted(muted)
+  }, [volume, muted])
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((id) => window.clearTimeout(id))
@@ -139,6 +187,46 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
     }
   }, [clearTimers])
 
+  const pauseGame = useCallback(() => {
+    if (stateRef.current.status !== 'playing') {
+      return
+    }
+    dispatch({ type: 'PAUSE_GAME', atMs: Date.now() })
+    const sound = getSoundManager()
+    sound.pauseBgm()
+    sound.playSfx('pause')
+  }, [])
+
+  const resumeGame = useCallback(() => {
+    if (stateRef.current.status !== 'paused') {
+      return
+    }
+    dispatch({ type: 'RESUME_GAME', atMs: Date.now() })
+    const sound = getSoundManager()
+    sound.playSfx('resume')
+    sound.resumeBgm()
+  }, [])
+
+  const togglePause = useCallback(() => {
+    if (stateRef.current.status === 'playing') {
+      pauseGame()
+    } else if (stateRef.current.status === 'paused') {
+      resumeGame()
+    }
+  }, [pauseGame, resumeGame])
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden && stateRef.current.status === 'playing') {
+        pauseGame()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [pauseGame])
+
   useEffect(() => {
     if (state.status !== 'playing' || state.gameStartedAtMs === null) {
       return
@@ -156,10 +244,18 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
   useEffect(() => {
     if (state.status === 'gameover' && !endedRef.current) {
       endedRef.current = true
-      const elapsedMs =
-        state.gameStartedAtMs === null
-          ? 0
-          : Math.max(0, Date.now() - state.gameStartedAtMs)
+      const sound = getSoundManager()
+      sound.stopBgm()
+      sound.playSfx('gameOver')
+
+      const elapsedMs = computeElapsedMs(
+        {
+          gameStartedAtMs: state.gameStartedAtMs,
+          pausedTotalMs: state.pausedTotalMs,
+          pausedAtMs: state.pausedAtMs,
+        },
+        Date.now(),
+      )
       const stats = buildTypingStats(
         {
           typedChars: state.typedCount,
@@ -168,19 +264,22 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
         },
         elapsedMs,
       )
-      onGameOver({
-        difficulty: state.difficulty,
-        score: state.score,
-        stage: state.stage,
-        destroyedTargets: state.destroyedTargets,
-        maxCombo: state.maxCombo,
-        typedChars: stats.typedChars,
-        correctChars: stats.correctChars,
-        missCount: stats.missCount,
-        elapsedMs: stats.elapsedMs,
-        wpm: stats.wpm,
-        accuracy: stats.accuracy,
-      }, playSessionId)
+      onGameOver(
+        {
+          difficulty: state.difficulty,
+          score: state.score,
+          stage: state.stage,
+          destroyedTargets: state.destroyedTargets,
+          maxCombo: state.maxCombo,
+          typedChars: stats.typedChars,
+          correctChars: stats.correctChars,
+          missCount: stats.missCount,
+          elapsedMs: stats.elapsedMs,
+          wpm: stats.wpm,
+          accuracy: stats.accuracy,
+        },
+        playSessionId,
+      )
     }
   }, [state, onGameOver, playSessionId])
 
@@ -195,6 +294,7 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
     if (!state.showStageUpFlash) {
       return
     }
+    getSoundManager().playSfx('stageUp')
     schedule(() => dispatch({ type: 'CLEAR_STAGE_UP_FLASH' }), 450)
   }, [state.showStageUpFlash, schedule])
 
@@ -276,8 +376,9 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
 
         targetsRef.current.delete(id)
         elementRefs.current.delete(id)
+        getSoundManager().playSfx('damage')
         setNinjaAnim('damage')
-        setDamaged(true)
+        setDamaged(!reducedMotion)
         schedule(() => setNinjaAnim('idle'), 220)
         schedule(() => setDamaged(false), 200)
         dispatch({
@@ -291,7 +392,7 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
         isPlayingRef.current = false
       }
     },
-    [config.missDamage, schedule],
+    [config.missDamage, schedule, reducedMotion],
   )
 
   const getSpawnInterval = useCallback(() => {
@@ -329,6 +430,7 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
         })
         targetId = findMostDangerousTargetId(candidates, yMap)
         if (!targetId) {
+          getSoundManager().playSfx('typeMiss')
           dispatch({ type: 'TYPE_MISS' })
           return
         }
@@ -336,22 +438,21 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
 
       const target = living.find((t) => t.id === targetId)
       if (!target) {
+        getSoundManager().playSfx('typeMiss')
         dispatch({ type: 'TYPE_MISS' })
         return
       }
 
       const problem = toTypingProblem(target, current.difficulty)
-      const matchResult = processRomajiInput(
-        target.matchState,
-        problem,
-        char,
-      )
+      const matchResult = processRomajiInput(target.matchState, problem, char)
 
       if (!matchResult.accepted) {
+        getSoundManager().playSfx('typeMiss')
         dispatch({ type: 'TYPE_MISS' })
         return
       }
 
+      getSoundManager().playSfx('typeCorrect')
       setNinjaX(target.xPercent)
       setNinjaAnim('attack')
       schedule(() => setNinjaAnim('idle'), 160)
@@ -370,26 +471,30 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
           current.score + scoreGain,
         )
         const y = targetsRef.current.get(target.id)?.y ?? target.yPosition
-        const slashId = `slash-${target.id}-${Date.now()}`
-        setSlashes((prev) => [
-          ...prev,
-          { id: slashId, xPercent: target.xPercent, yPx: y },
-        ])
-        schedule(() => {
-          setSlashes((prev) => prev.filter((item) => item.id !== slashId))
-        }, 300)
+        getSoundManager().playSfx('destroy')
 
-        if (nextCombo >= gameConfig.comboPopupThreshold) {
-          const popupId = `combo-${slashId}`
-          setComboPopup({
-            id: popupId,
-            combo: nextCombo,
-            xPercent: target.xPercent,
-            yPx: y,
-          })
+        if (!reducedMotion) {
+          const slashId = `slash-${target.id}-${Date.now()}`
+          setSlashes((prev) => [
+            ...prev,
+            { id: slashId, xPercent: target.xPercent, yPx: y },
+          ])
           schedule(() => {
-            setComboPopup((prev) => (prev?.id === popupId ? null : prev))
-          }, 900)
+            setSlashes((prev) => prev.filter((item) => item.id !== slashId))
+          }, 300)
+
+          if (nextCombo >= gameConfig.comboPopupThreshold) {
+            const popupId = `combo-${slashId}`
+            setComboPopup({
+              id: popupId,
+              combo: nextCombo,
+              xPercent: target.xPercent,
+              yPx: y,
+            })
+            schedule(() => {
+              setComboPopup((prev) => (prev?.id === popupId ? null : prev))
+            }, 900)
+          }
         }
 
         dispatch({
@@ -426,14 +531,18 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
         matchState: matchResult.nextState,
       })
     },
-    [config, schedule],
+    [config, schedule, reducedMotion],
   )
 
   const hudStats = useMemo(() => {
-    const elapsedMs =
-      state.gameStartedAtMs === null
-        ? 0
-        : Math.max(0, hudNowMs - state.gameStartedAtMs)
+    const elapsedMs = computeElapsedMs(
+      {
+        gameStartedAtMs: state.gameStartedAtMs,
+        pausedTotalMs: state.pausedTotalMs,
+        pausedAtMs: state.pausedAtMs,
+      },
+      state.status === 'paused' ? (state.pausedAtMs ?? hudNowMs) : hudNowMs,
+    )
     return buildTypingStats(
       {
         typedChars: state.typedCount,
@@ -447,12 +556,16 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
     state.correctChars,
     state.gameStartedAtMs,
     state.missCount,
+    state.pausedAtMs,
+    state.pausedTotalMs,
+    state.status,
     state.typedCount,
   ])
 
   useKeyboardInput({
     enabled: state.status === 'playing',
     onChar: handleChar,
+    onEscape: togglePause,
   })
 
   const handleAreaReady = useCallback((element: HTMLDivElement | null) => {
@@ -462,18 +575,29 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
     setAreaHeight(element.clientHeight)
   }, [])
 
+  const handleAbandon = useCallback(() => {
+    getSoundManager().stopBgm()
+    onAbandonToTitle()
+  }, [onAbandonToTitle])
+
+  const handleRetryFromPause = useCallback(() => {
+    getSoundManager().stopBgm()
+    onRetry()
+  }, [onRetry])
+
   return (
     <main className="flex min-h-screen flex-col items-center px-3 py-6 md:px-4">
-      <GameArea damaged={damaged} onReady={handleAreaReady}>
+      <GameArea damaged={damaged && !reducedMotion} onReady={handleAreaReady}>
         <GameHud
           score={state.score}
           combo={state.combo}
           stage={state.stage}
           difficultyLabel={config.displayName}
-          showStageUp={state.showStageUpFlash}
+          showStageUp={state.showStageUpFlash && !reducedMotion}
           elapsedLabel={formatElapsedTime(hudStats.elapsedMs)}
           wpm={hudStats.wpm}
           accuracy={hudStats.accuracy}
+          onPause={state.status === 'playing' ? pauseGame : undefined}
         />
         <DefenseGauge defense={state.defense} maxDefense={gameConfig.maxHealth} />
 
@@ -482,13 +606,17 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
             key={target.id}
             target={target}
             isLocked={state.lockedTargetId === target.id}
-            showMiss={state.showMissFeedback && state.lockedTargetId === target.id}
+            showMiss={
+              !reducedMotion &&
+              state.showMissFeedback &&
+              state.lockedTargetId === target.id
+            }
             registerElement={registerElement}
           />
         ))}
 
-        <SlashEffect effects={slashes} />
-        {comboPopup && (
+        {!reducedMotion && <SlashEffect effects={slashes} />}
+        {!reducedMotion && comboPopup && (
           <ComboDisplay
             combo={comboPopup.combo}
             xPercent={comboPopup.xPercent}
@@ -503,6 +631,18 @@ export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreen
           <p className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[90%] -translate-x-1/2 text-center text-sm text-[var(--color-text-soft)] md:bottom-32">
             落下する日本語をローマ字入力して手裏剣を撃ち落とせ！
           </p>
+        )}
+
+        {state.status === 'paused' && (
+          <PauseOverlay
+            volume={volume}
+            muted={muted}
+            onResume={resumeGame}
+            onRetry={handleRetryFromPause}
+            onTitle={handleAbandon}
+            onVolumeChange={onVolumeChange}
+            onMutedChange={onMutedChange}
+          />
         )}
       </GameArea>
     </main>

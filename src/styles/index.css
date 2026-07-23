@@ -222,3 +222,21 @@
     animation: none !important;
   }
 }
+
+html[data-motion='reduced'] .enemy-sprite,
+html[data-motion='reduced'] .ninja-attack,
+html[data-motion='reduced'] .ninja-damage,
+html[data-motion='reduced'] .slash-effect,
+html[data-motion='reduced'] .combo-popup,
+html[data-motion='reduced'] .target-destroyed,
+html[data-motion='reduced'] .target-miss-shake,
+html[data-motion='reduced'] .damage-flash,
+html[data-motion='reduced'] .motion-safe-scale {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+html[data-motion='reduced'] .motion-safe-scale.scale-125 {
+  transform: none !important;
+}

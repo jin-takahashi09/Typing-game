@@ -1,10 +1,11 @@
 import { getDifficultyConfig } from '../config/difficultyConfig'
 import { GameButton } from '../components/common/GameButton'
+import { PlayComparisonPanel } from '../components/records/PlayComparisonPanel'
 import { formatElapsedTime } from '../utils/calculateTypingStats'
-import type { GameResultSummary } from '../types/game'
+import type { ResultViewModel } from '../types/game'
 
 interface ResultScreenProps {
-  result: GameResultSummary
+  result: ResultViewModel
   onRetry: () => void
   onChangeDifficulty: () => void
   onTitle: () => void
@@ -16,7 +17,8 @@ export function ResultScreen({
   onChangeDifficulty,
   onTitle,
 }: ResultScreenProps) {
-  const config = getDifficultyConfig(result.difficulty)
+  const { summary, comparison, saveError } = result
+  const config = getDifficultyConfig(summary.difficulty)
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
@@ -25,13 +27,24 @@ export function ResultScreen({
           DEFENSE FAILED
         </h1>
 
+        <PlayComparisonPanel comparison={comparison} />
+
+        {saveError && (
+          <p
+            className="mb-4 rounded border border-[var(--color-border-red)] bg-red-950/40 px-3 py-2 text-sm text-[var(--color-accent-red)]"
+            role="alert"
+          >
+            {saveError}
+          </p>
+        )}
+
         <div className="mb-8 rounded-[var(--radius-lg)] border-2 border-[var(--color-border-blue)] bg-slate-800/80 p-6 text-left shadow-2xl">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               Final Score
             </div>
             <div className="font-display text-right text-xl text-[var(--color-accent-yellow)]">
-              {result.score}
+              {summary.score}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
@@ -45,63 +58,63 @@ export function ResultScreen({
               Stage
             </div>
             <div className="font-display text-right text-xl text-white">
-              {result.stage}
+              {summary.stage}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               Words Defeated
             </div>
             <div className="font-display text-right text-xl text-white">
-              {result.destroyedTargets}
+              {summary.destroyedTargets}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               Max Combo
             </div>
             <div className="font-display text-right text-xl text-[var(--color-accent-red)]">
-              {result.maxCombo}
+              {summary.maxCombo}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               Play Time
             </div>
             <div className="font-display text-right text-xl text-white">
-              {formatElapsedTime(result.elapsedMs)}
+              {formatElapsedTime(summary.elapsedMs)}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               Typed Chars
             </div>
             <div className="font-display text-right text-xl text-white">
-              {result.typedChars}
+              {summary.typedChars}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               Correct Chars
             </div>
             <div className="font-display text-right text-xl text-white">
-              {result.correctChars}
+              {summary.correctChars}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               Miss Types
             </div>
             <div className="font-display text-right text-xl text-white">
-              {result.missCount}
+              {summary.missCount}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               Accuracy
             </div>
             <div className="font-display text-right text-xl text-[var(--color-accent-yellow)]">
-              {result.accuracy.toFixed(1)}%
+              {summary.accuracy.toFixed(1)}%
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
               WPM
             </div>
             <div className="font-display text-right text-xl text-[var(--color-accent-yellow)]">
-              {result.wpm.toFixed(1)}
+              {summary.wpm.toFixed(1)}
             </div>
           </dl>
         </div>

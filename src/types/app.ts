@@ -4,4 +4,4 @@ export type DifficultyId = 'trainee' | 'ninja' | 'master'
 export type MotionPreference = 'system' | 'reduced' | 'full'
 
 /** アプリ画面。Phase ごとに必要な画面を追加する */
-export type AppScreen = 'title' | 'difficulty' | 'game' | 'result'
+export type AppScreen = 'title' | 'difficulty' | 'game' | 'result' | 'records'

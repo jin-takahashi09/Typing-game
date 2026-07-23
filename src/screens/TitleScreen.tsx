@@ -1,17 +1,23 @@
 import { appConfig } from '../config/appConfig'
+import { difficultyOrder, getDifficultyConfig } from '../config/difficultyConfig'
 import { GameButton } from '../components/common/GameButton'
+import type { StoredAppData } from '../types/records'
 
 interface TitleScreenProps {
+  storedData: StoredAppData
   onStartTraining: () => void
+  onOpenRecords: () => void
 }
 
-const upcomingMenus = [
-  { id: 'howto', label: '遊び方' },
-  { id: 'records', label: 'プレイ記録' },
-  { id: 'settings', label: '設定' },
-] as const
+export function TitleScreen({
+  storedData,
+  onStartTraining,
+  onOpenRecords,
+}: TitleScreenProps) {
+  const hasBestScores = difficultyOrder.some(
+    (id) => storedData.bestByDifficulty[id] !== null,
+  )
 
-export function TitleScreen({ onStartTraining }: TitleScreenProps) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
       <section
@@ -45,7 +51,32 @@ export function TitleScreen({ onStartTraining }: TitleScreenProps) {
           {appConfig.tagline}
         </p>
 
-        <div className="relative mb-10 flex justify-center">
+        {hasBestScores && (
+          <div className="relative mx-auto mb-8 max-w-md rounded border border-[var(--color-border-blue)] bg-black/30 p-3 text-left">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+              ベストスコア
+            </p>
+            <ul className="space-y-1 text-sm">
+              {difficultyOrder.map((id) => {
+                const best = storedData.bestByDifficulty[id]
+                if (!best) {
+                  return null
+                }
+                const config = getDifficultyConfig(id)
+                return (
+                  <li key={id} className="flex justify-between gap-3 text-[var(--color-text-soft)]">
+                    <span>{config.displayName}</span>
+                    <span className="font-display text-[var(--color-accent-yellow)]">
+                      {best.score}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+
+        <div className="relative mb-6 flex justify-center">
           <GameButton size="lg" onClick={onStartTraining}>
             修行を始める
           </GameButton>
@@ -53,17 +84,19 @@ export function TitleScreen({ onStartTraining }: TitleScreenProps) {
 
         <nav
           className="relative mx-auto flex max-w-md flex-col gap-3"
-          aria-label="今後追加予定のメニュー"
+          aria-label="メインメニュー"
         >
-          <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-            今後実装予定
-          </p>
-          {upcomingMenus.map((item) => (
-            <GameButton key={item.id} variant="ghost" disabled aria-disabled="true">
-              {item.label}
-              <span className="ml-2 text-[0.65rem] opacity-80">（準備中）</span>
-            </GameButton>
-          ))}
+          <GameButton variant="secondary" onClick={onOpenRecords}>
+            プレイ記録
+          </GameButton>
+          <GameButton variant="ghost" disabled aria-disabled="true">
+            遊び方
+            <span className="ml-2 text-[0.65rem] opacity-80">（準備中）</span>
+          </GameButton>
+          <GameButton variant="ghost" disabled aria-disabled="true">
+            設定
+            <span className="ml-2 text-[0.65rem] opacity-80">（準備中）</span>
+          </GameButton>
         </nav>
       </section>
     </main>

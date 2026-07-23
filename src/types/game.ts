@@ -1,4 +1,5 @@
 import type { DifficultyId } from './app'
+import type { PlayComparison } from './records'
 import type { RomajiMatchState } from './typing'
 
 export type GameStatus = 'ready' | 'playing' | 'gameover'
@@ -54,6 +55,13 @@ export interface GameResultSummary {
   elapsedMs: number
   wpm: number
   accuracy: number
+}
+
+export interface ResultViewModel {
+  summary: GameResultSummary
+  comparison: PlayComparison
+  saveError: string | null
+  playSessionId: number
 }
 
 export type GameAction =

@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { getDifficultyConfig } from '../config/difficultyConfig'
 import { gameConfig } from '../config/gameConfig'
+import type { ActivePlayCharacter } from '../config/characters'
 import { GameArea } from '../components/game/GameArea'
 import { GameHud } from '../components/game/GameHud'
 import { DefenseGauge } from '../components/game/DefenseGauge'
@@ -17,6 +18,7 @@ import { SlashEffect } from '../components/game/SlashEffect'
 import { ComboDisplay } from '../components/game/ComboDisplay'
 import { PauseOverlay } from '../components/game/PauseOverlay'
 import { StageClearCoinPopup } from '../components/game/StageClearCoinPopup'
+import { AbilityFloatText } from '../components/game/AbilityFloatText'
 import {
   createInitialGameState,
   gameReducer,
@@ -54,6 +56,11 @@ import {
   tryAwardStageClear,
   type PlayCoinTracker,
 } from '../utils/coinRewards'
+import {
+  applyDamageAbility,
+  applyScoreAbility,
+  applyStageCoinAbility,
+} from '../utils/characterAbilities'
 import { getSoundManager } from '../audio/SoundManager'
 import type { DifficultyId } from '../types/app'
 import type {
@@ -80,7 +87,7 @@ interface ComboPopup {
 interface GameScreenProps {
   difficulty: DifficultyId
   playSessionId: number
-  characterId: string
+  playCharacter: ActivePlayCharacter
   volume: number
   muted: boolean
   reducedMotion: boolean
@@ -111,7 +118,7 @@ function toTypingProblem(target: GameTarget, difficulty: DifficultyId): TypingPr
 export function GameScreen({
   difficulty,
   playSessionId,
-  characterId,
+  playCharacter,
   volume,
   muted,
   reducedMotion,
@@ -139,7 +146,14 @@ export function GameScreen({
   const [stageCoinPopup, setStageCoinPopup] = useState<{
     stage: number
     coins: number
+    abilityBonusCoins: number
   } | null>(null)
+  const [showScoreBurst, setShowScoreBurst] = useState(false)
+  const [showScoreAbilityHint, setShowScoreAbilityHint] = useState(false)
+  const [showGuardBurst, setShowGuardBurst] = useState(false)
+  const [guardFloat, setGuardFloat] = useState<{ reducedBy: number } | null>(
+    null,
+  )
 
   const targetsRef = useRef<Map<string, TargetMotion>>(new Map())
   const elementRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -150,6 +164,13 @@ export function GameScreen({
   const isPlayingRef = useRef(true)
   const soundStartedRef = useRef(false)
   const playCoinTrackerRef = useRef<PlayCoinTracker>(createPlayCoinTracker())
+  const abilityBonusScoreRef = useRef(0)
+  const abilityBonusCoinsRef = useRef(0)
+
+  useEffect(() => {
+    abilityBonusScoreRef.current = 0
+    abilityBonusCoinsRef.current = 0
+  }, [])
 
   useEffect(() => {
     stateRef.current = state
@@ -307,12 +328,15 @@ export function GameScreen({
           elapsedMs: stats.elapsedMs,
           wpm: stats.wpm,
           accuracy: stats.accuracy,
+          characterId: playCharacter.characterId,
+          abilityBonusScore: abilityBonusScoreRef.current,
+          abilityBonusCoins: abilityBonusCoinsRef.current,
         },
         playSessionId,
         coinSummary,
       )
     }
-  }, [state, onGameOver, playSessionId])
+  }, [state, onGameOver, playSessionId, playCharacter.characterId])
 
   useEffect(() => {
     if (!state.showMissFeedback) {
@@ -330,14 +354,29 @@ export function GameScreen({
     const clearedStage = state.stage - 1
     const award = tryAwardStageClear(playCoinTrackerRef.current, clearedStage)
     if (award.awarded) {
-      playCoinTrackerRef.current = award.tracker
-      onAwardStageCoins(award.coins)
-      setStageCoinPopup({ stage: clearedStage, coins: award.coins })
+      const applied = applyStageCoinAbility(award.coins, playCharacter.ability)
+      const awards = [...award.tracker.stageAwards]
+      const last = awards[awards.length - 1]!
+      awards[awards.length - 1] = { stage: last.stage, coins: applied.finalCoins }
+      playCoinTrackerRef.current = { ...award.tracker, stageAwards: awards }
+      abilityBonusCoinsRef.current += applied.bonusCoins
+      onAwardStageCoins(applied.finalCoins)
+      setStageCoinPopup({
+        stage: clearedStage,
+        coins: applied.finalCoins,
+        abilityBonusCoins: applied.bonusCoins,
+      })
       schedule(() => setStageCoinPopup(null), 1600)
     }
 
     schedule(() => dispatch({ type: 'CLEAR_STAGE_UP_FLASH' }), 450)
-  }, [state.showStageUpFlash, state.stage, schedule, onAwardStageCoins])
+  }, [
+    state.showStageUpFlash,
+    state.stage,
+    schedule,
+    onAwardStageCoins,
+    playCharacter.ability,
+  ])
 
   const registerElement = useCallback((id: string, element: HTMLElement | null) => {
     if (element) {
@@ -404,11 +443,25 @@ export function GameScreen({
         return
       }
 
+      const damageResult = applyDamageAbility(
+        config.missDamage,
+        playCharacter.ability,
+      )
+
       const { appliedTargetIds, remainingDefense } = applySequentialBottomDamage(
         current.defense,
         eligibleIds,
-        config.missDamage,
+        damageResult.finalDamage,
       )
+
+      if (damageResult.reducedBy > 0 && appliedTargetIds.length > 0) {
+        setShowGuardBurst(true)
+        setGuardFloat({ reducedBy: damageResult.reducedBy })
+        schedule(() => {
+          setShowGuardBurst(false)
+          setGuardFloat(null)
+        }, 800)
+      }
 
       for (const id of appliedTargetIds) {
         if (!targetsRef.current.has(id)) {
@@ -425,7 +478,7 @@ export function GameScreen({
         dispatch({
           type: 'TARGET_REACHED_BOTTOM',
           targetId: id,
-          damage: config.missDamage,
+          damage: damageResult.finalDamage,
         })
       }
 
@@ -433,7 +486,7 @@ export function GameScreen({
         isPlayingRef.current = false
       }
     },
-    [config.missDamage, schedule, reducedMotion],
+    [config.missDamage, schedule, reducedMotion, playCharacter],
   )
 
   const getSpawnInterval = useCallback(() => {
@@ -500,12 +553,23 @@ export function GameScreen({
 
       if (matchResult.isComplete) {
         const nextCombo = current.combo + 1
-        const scoreGain = calculateScore({
+        const baseGain = calculateScore({
           baseScore: target.baseScore,
           difficultyMultiplier: config.scoreMultiplier,
           combo: nextCombo,
           comboMultiplier: config.comboMultiplier,
         })
+        const applied = applyScoreAbility(baseGain, playCharacter.ability)
+        const scoreGain = applied.finalScore
+        abilityBonusScoreRef.current += applied.bonusScore
+        if (applied.bonusScore > 0) {
+          setShowScoreBurst(true)
+          setShowScoreAbilityHint(true)
+          schedule(() => {
+            setShowScoreBurst(false)
+            setShowScoreAbilityHint(false)
+          }, 700)
+        }
         const shouldAdvance = shouldAdvanceStage(
           current.destroyedTargets + 1,
           config.stageUpCondition,
@@ -572,7 +636,7 @@ export function GameScreen({
         matchState: matchResult.nextState,
       })
     },
-    [config, schedule, reducedMotion],
+    [config, schedule, reducedMotion, playCharacter],
   )
 
   const hudStats = useMemo(() => {
@@ -638,6 +702,8 @@ export function GameScreen({
           elapsedLabel={formatElapsedTime(hudStats.elapsedMs)}
           wpm={hudStats.wpm}
           accuracy={hudStats.accuracy}
+          abilityLabel={playCharacter.ability.name}
+          showScoreAbilityHint={showScoreAbilityHint}
           onPause={state.status === 'playing' ? pauseGame : undefined}
         />
         <DefenseGauge defense={state.defense} maxDefense={gameConfig.maxHealth} />
@@ -669,13 +735,29 @@ export function GameScreen({
         <NinjaPlayer
           xPercent={ninjaX}
           animation={ninjaAnim}
-          characterId={characterId}
+          character={playCharacter}
+          reducedMotion={reducedMotion}
+          showScoreBurst={showScoreBurst}
+          showGuardBurst={showGuardBurst}
         />
+
+        {guardFloat && (
+          <div
+            className="pointer-events-none absolute bottom-28 z-40 -translate-x-1/2 md:bottom-32"
+            style={{ left: `${ninjaX}%` }}
+          >
+            <AbilityFloatText
+              text={`蒼影の守り -${guardFloat.reducedBy}`}
+              variant="water"
+            />
+          </div>
+        )}
 
         {stageCoinPopup && (
           <StageClearCoinPopup
             stage={stageCoinPopup.stage}
             coins={stageCoinPopup.coins}
+            abilityBonusCoins={stageCoinPopup.abilityBonusCoins}
           />
         )}
 
@@ -687,7 +769,7 @@ export function GameScreen({
 
         {state.status === 'paused' && (
           <PauseOverlay
-            characterId={characterId}
+            playCharacter={playCharacter}
             volume={volume}
             muted={muted}
             onResume={resumeGame}

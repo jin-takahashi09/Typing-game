@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { getDifficultyConfig } from '../config/difficultyConfig'
+import { resolveCharacter } from '../config/characters'
 import { GameButton } from '../components/common/GameButton'
 import { CharacterPreview } from '../components/common/CharacterPreview'
 import { PlayComparisonPanel } from '../components/records/PlayComparisonPanel'
@@ -26,6 +27,7 @@ export function ResultScreen({
   useFocusOnMount(headingRef)
   const { summary, comparison, saveError, coinSummary } = result
   const config = getDifficultyConfig(summary.difficulty)
+  const character = resolveCharacter(characterId)
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
@@ -38,8 +40,22 @@ export function ResultScreen({
           DEFENSE FAILED
         </h1>
 
-        <div className="mb-6 flex justify-center">
-          <CharacterPreview characterId={characterId} size="md" />
+        <div className="mb-4 flex flex-col items-center gap-2">
+          <CharacterPreview characterId={character.id} size="md" />
+          <p className="text-sm text-[var(--color-text-soft)]">{character.name}</p>
+          <p className="text-xs text-[var(--color-accent-yellow)]">
+            {character.ability.name}：{character.ability.description}
+          </p>
+          {summary.abilityBonusScore > 0 && (
+            <p className="text-xs font-bold text-[var(--color-accent-yellow)]">
+              能力による追加スコア：+{summary.abilityBonusScore}
+            </p>
+          )}
+          {summary.abilityBonusCoins > 0 && (
+            <p className="text-xs font-bold text-[var(--color-accent-yellow)]">
+              能力による追加コイン：+{summary.abilityBonusCoins}
+            </p>
+          )}
         </div>
 
         <PlayComparisonPanel comparison={comparison} />

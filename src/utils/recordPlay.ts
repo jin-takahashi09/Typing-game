@@ -26,6 +26,13 @@ export function createPlayRecordFromResult(
     accuracy: result.accuracy,
     wpm: result.wpm,
     maxCombo: result.maxCombo,
+    characterId: result.characterId,
+    ...(result.abilityBonusScore > 0
+      ? { abilityBonusScore: result.abilityBonusScore }
+      : {}),
+    ...(result.abilityBonusCoins > 0
+      ? { abilityBonusCoins: result.abilityBonusCoins }
+      : {}),
   }
 }
 

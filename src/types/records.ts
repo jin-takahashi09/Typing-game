@@ -43,6 +43,10 @@ export interface PlayRecord {
   accuracy: number
   wpm: number
   maxCombo: number
+  /** そのプレイで使用したキャラクター（欠損時は見習い扱い） */
+  characterId: string
+  abilityBonusScore?: number
+  abilityBonusCoins?: number
 }
 
 export interface PlayComparison {

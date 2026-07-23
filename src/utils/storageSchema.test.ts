@@ -73,6 +73,21 @@ describe('storageSchema', () => {
     })
     expect(data).toEqual(createDefaultStoredData())
   })
+
+  it('defaults missing characterId on legacy play records', () => {
+    const data = validateAndNormalize({
+      version: 2,
+      recentPlays: [
+        {
+          id: 'legacy',
+          playedAt: '2026-01-01T00:00:00.000Z',
+          difficulty: 'ninja',
+          score: 10,
+        },
+      ],
+    })
+    expect(data.recentPlays[0]?.characterId).toBe('shinobi-default')
+  })
 })
 
 describe('parseStoredData with corrupted input', () => {

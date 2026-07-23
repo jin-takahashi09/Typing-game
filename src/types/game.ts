@@ -57,6 +57,9 @@ export interface GameResultSummary {
   elapsedMs: number
   wpm: number
   accuracy: number
+  characterId: string
+  abilityBonusScore: number
+  abilityBonusCoins: number
 }
 
 export interface PlayCoinSummary {

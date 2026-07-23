@@ -38,6 +38,7 @@ describe('clearPlayRecords', () => {
         accuracy: 90,
         wpm: 40,
         maxCombo: 5,
+        characterId: 'shinobi-default',
       },
     ]
 

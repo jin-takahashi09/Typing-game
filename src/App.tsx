@@ -3,6 +3,12 @@ import type { AppScreen, DifficultyId } from './types/app'
 import type { GameResultSummary, PlayCoinSummary, ResultViewModel } from './types/game'
 import type { StoredAppData, StoredSettings } from './types/records'
 import { createDefaultStoredData } from './types/records'
+import {
+  type ActivePlayCharacter,
+  getDefaultCharacter,
+  resolveCharacter,
+  toActivePlayCharacter,
+} from './config/characters'
 import { TitleScreen } from './screens/TitleScreen'
 import { DifficultyScreen } from './screens/DifficultyScreen'
 import { GameScreen } from './screens/GameScreen'
@@ -34,6 +40,9 @@ export default function App() {
   const [recordsClearError, setRecordsClearError] = useState<string | null>(null)
   const [charactersError, setCharactersError] = useState<string | null>(null)
   const [gameSession, setGameSession] = useState(0)
+  const [playCharacter, setPlayCharacter] = useState<ActivePlayCharacter | null>(
+    null,
+  )
   const savedPlaySessionsRef = useRef<Set<number>>(new Set())
   const purchasingRef = useRef(false)
   const storedDataRef = useRef(storedData)
@@ -192,6 +201,11 @@ export default function App() {
     async (id: DifficultyId) => {
       await unlockAudio()
       getSoundManager().playSfx('uiClick')
+      const selectedId = storedDataRef.current.economy.selectedCharacterId
+      const owned =
+        storedDataRef.current.economy.ownedCharacterIds.includes(selectedId)
+      const def = owned ? resolveCharacter(selectedId) : getDefaultCharacter()
+      setPlayCharacter(toActivePlayCharacter(def))
       setDifficulty(id)
       setResult(null)
       setGameSession((value) => value + 1)
@@ -244,11 +258,18 @@ export default function App() {
     getSoundManager().stopBgm()
     setResult(null)
     setDifficulty(null)
+    setPlayCharacter(null)
     setScreen('title')
   }, [])
 
   const reducedMotion = resolveReducedMotion(storedData.settings.motionPreference)
   const selectedCharacterId = storedData.economy.selectedCharacterId
+  const activePlayCharacter =
+    playCharacter ?? toActivePlayCharacter(getDefaultCharacter())
+  const resultCharacterId =
+    result?.summary.characterId ??
+    playCharacter?.characterId ??
+    selectedCharacterId
 
   const titleFallback = (
     <TitleScreen
@@ -295,7 +316,7 @@ export default function App() {
           key={`${difficulty}-${gameSession}`}
           difficulty={difficulty!}
           playSessionId={gameSession}
-          characterId={selectedCharacterId}
+          playCharacter={activePlayCharacter}
           volume={storedData.settings.volume}
           muted={storedData.settings.muted}
           reducedMotion={reducedMotion}
@@ -311,7 +332,7 @@ export default function App() {
       return (
         <ResultScreen
           result={result!}
-          characterId={selectedCharacterId}
+          characterId={resultCharacterId}
           onRetry={() => startGame(difficulty!)}
           onChangeDifficulty={() => setScreen('difficulty')}
           onTitle={goTitle}

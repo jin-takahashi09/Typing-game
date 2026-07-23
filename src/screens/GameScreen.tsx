@@ -63,7 +63,8 @@ interface ComboPopup {
 
 interface GameScreenProps {
   difficulty: DifficultyId
-  onGameOver: (result: GameResultSummary) => void
+  playSessionId: number
+  onGameOver: (result: GameResultSummary, playSessionId: number) => void
 }
 
 function toTypingProblem(target: GameTarget, difficulty: DifficultyId): TypingProblem {
@@ -78,7 +79,7 @@ function toTypingProblem(target: GameTarget, difficulty: DifficultyId): TypingPr
   }
 }
 
-export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
+export function GameScreen({ difficulty, playSessionId, onGameOver }: GameScreenProps) {
   const config = useMemo(() => getDifficultyConfig(difficulty), [difficulty])
   const [state, dispatch] = useReducer(gameReducer, undefined, () => ({
     ...createInitialGameState(difficulty, gameConfig.maxHealth),
@@ -179,9 +180,9 @@ export function GameScreen({ difficulty, onGameOver }: GameScreenProps) {
         elapsedMs: stats.elapsedMs,
         wpm: stats.wpm,
         accuracy: stats.accuracy,
-      })
+      }, playSessionId)
     }
-  }, [state, onGameOver])
+  }, [state, onGameOver, playSessionId])
 
   useEffect(() => {
     if (!state.showMissFeedback) {

@@ -7,6 +7,7 @@ interface GameHudProps {
   elapsedLabel: string
   wpm: number
   accuracy: number
+  onPause?: () => void
 }
 
 export function GameHud({
@@ -18,6 +19,7 @@ export function GameHud({
   elapsedLabel,
   wpm,
   accuracy,
+  onPause,
 }: GameHudProps) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 p-3 md:p-4">
@@ -48,15 +50,27 @@ export function GameHud({
         </div>
       </div>
 
-      <div
-        className={[
-          'rounded-full border border-[var(--color-border-yellow)] bg-black/50 px-4 py-2 transition-transform',
-          showStageUp ? 'scale-125 bg-yellow-600/80' : '',
-        ].join(' ')}
-      >
-        <span className="font-display text-sm text-[var(--color-accent-yellow)] md:text-lg">
-          STAGE {stage}
-        </span>
+      <div className="flex flex-col items-center gap-2">
+        <div
+          className={[
+            'rounded-full border border-[var(--color-border-yellow)] bg-black/50 px-4 py-2 transition-transform',
+            showStageUp ? 'scale-125 bg-yellow-600/80' : '',
+            'motion-safe-scale',
+          ].join(' ')}
+        >
+          <span className="font-display text-sm text-[var(--color-accent-yellow)] md:text-lg">
+            STAGE {stage}
+          </span>
+        </div>
+        {onPause && (
+          <button
+            type="button"
+            className="pointer-events-auto rounded border border-[var(--color-border-blue)] bg-black/70 px-3 py-1 text-xs font-bold text-[var(--color-text-soft)] hover:bg-black/90"
+            onClick={onPause}
+          >
+            一時停止
+          </button>
+        )}
       </div>
 
       <div className="rounded border border-[var(--color-border-blue)] bg-black/50 px-3 py-2 text-right">

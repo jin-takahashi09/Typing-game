@@ -2,7 +2,7 @@ import type { DifficultyId } from './app'
 import type { PlayComparison } from './records'
 import type { RomajiMatchState } from './typing'
 
-export type GameStatus = 'ready' | 'playing' | 'gameover'
+export type GameStatus = 'ready' | 'playing' | 'paused' | 'gameover'
 export type TargetState = 'falling' | 'locked' | 'destroyed'
 export type NinjaAnimationState = 'idle' | 'attack' | 'damage'
 
@@ -39,6 +39,8 @@ export interface GameState {
   correctChars: number
   missCount: number
   gameStartedAtMs: number | null
+  pausedTotalMs: number
+  pausedAtMs: number | null
   showMissFeedback: boolean
   showStageUpFlash: boolean
 }
@@ -86,4 +88,6 @@ export type GameAction =
   | { type: 'TARGET_REACHED_BOTTOM'; targetId: string; damage: number }
   | { type: 'CLEAR_STAGE_UP_FLASH' }
   | { type: 'END_GAME' }
+  | { type: 'PAUSE_GAME'; atMs: number }
+  | { type: 'RESUME_GAME'; atMs: number }
   | { type: 'RESET_GAME'; difficulty: DifficultyId; maxDefense: number; startedAtMs: number }

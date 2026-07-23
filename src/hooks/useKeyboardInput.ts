@@ -4,19 +4,29 @@ import { isTypingKey } from '../features/game/gameLogic'
 interface UseKeyboardInputParams {
   enabled: boolean
   onChar: (char: string) => void
+  onEscape?: () => void
 }
 
 export function useKeyboardInput({
   enabled,
   onChar,
+  onEscape,
 }: UseKeyboardInputParams): void {
   useEffect(() => {
-    if (!enabled) {
-      return
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229) {
+        return
+      }
+
+      if (event.key === 'Escape') {
+        if (onEscape) {
+          event.preventDefault()
+          onEscape()
+        }
+        return
+      }
+
+      if (!enabled) {
         return
       }
 
@@ -26,7 +36,6 @@ export function useKeyboardInput({
         event.metaKey ||
         event.key === 'Shift' ||
         event.key === 'Tab' ||
-        event.key === 'Escape' ||
         event.key === 'Enter' ||
         event.key === ' ' ||
         event.key === 'Backspace' ||
@@ -48,5 +57,5 @@ export function useKeyboardInput({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [enabled, onChar])
+  }, [enabled, onChar, onEscape])
 }

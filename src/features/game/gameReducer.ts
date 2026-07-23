@@ -23,6 +23,8 @@ export function createInitialGameState(
     correctChars: 0,
     missCount: 0,
     gameStartedAtMs: null,
+    pausedTotalMs: 0,
+    pausedAtMs: null,
     showMissFeedback: false,
     showStageUpFlash: false,
   }
@@ -166,7 +168,35 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         status: 'gameover',
         lockedTargetId: null,
+        pausedAtMs: null,
       }
+
+    case 'PAUSE_GAME': {
+      if (state.status !== 'playing') {
+        return state
+      }
+      return {
+        ...state,
+        status: 'paused',
+        pausedAtMs: action.atMs,
+      }
+    }
+
+    case 'RESUME_GAME': {
+      if (state.status !== 'paused') {
+        return state
+      }
+      const pausedExtra =
+        state.pausedAtMs === null
+          ? 0
+          : Math.max(0, action.atMs - state.pausedAtMs)
+      return {
+        ...state,
+        status: 'playing',
+        pausedTotalMs: state.pausedTotalMs + pausedExtra,
+        pausedAtMs: null,
+      }
+    }
 
     default:
       return state

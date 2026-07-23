@@ -8,7 +8,7 @@ import type { DifficultyId } from '../types/app'
 
 interface DifficultyScreenProps {
   onBack: () => void
-  onStart: (difficulty: DifficultyId) => void
+  onStart: (difficulty: DifficultyId) => void | Promise<void>
   initialDifficulty?: DifficultyId
 }
 

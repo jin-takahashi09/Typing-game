@@ -1,7 +1,9 @@
 import { useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { difficultyOrder, getDifficultyConfig } from '../config/difficultyConfig'
+import { getCharacterById, DEFAULT_CHARACTER_ID } from '../config/characters'
 import { GameButton } from '../components/common/GameButton'
+import { CharacterPreview } from '../components/common/CharacterPreview'
 import { useFocusOnMount } from '../hooks/useFocusTrap'
 import type { StoredAppData } from '../types/records'
 
@@ -9,6 +11,7 @@ interface TitleScreenProps {
   storedData: StoredAppData
   onStartTraining: () => void
   onOpenRecords: () => void
+  onOpenCharacters: () => void
   onOpenSettings: () => void
   onOpenHowTo: () => void
 }
@@ -17,6 +20,7 @@ export function TitleScreen({
   storedData,
   onStartTraining,
   onOpenRecords,
+  onOpenCharacters,
   onOpenSettings,
   onOpenHowTo,
 }: TitleScreenProps) {
@@ -26,6 +30,9 @@ export function TitleScreen({
   const hasBestScores = difficultyOrder.some(
     (id) => storedData.bestByDifficulty[id] !== null,
   )
+  const selectedCharacter =
+    getCharacterById(storedData.economy.selectedCharacterId) ??
+    getCharacterById(DEFAULT_CHARACTER_ID)!
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
@@ -58,9 +65,22 @@ export function TitleScreen({
           {appConfig.name}
         </h1>
 
-        <p className="relative mb-8 text-base text-[var(--color-text-soft)] sm:mb-10 sm:text-lg md:text-2xl">
+        <p className="relative mb-6 text-base text-[var(--color-text-soft)] sm:mb-8 sm:text-lg md:text-2xl">
           {appConfig.tagline}
         </p>
+
+        <div className="relative mb-6 flex flex-col items-center gap-2">
+          <CharacterPreview
+            characterId={selectedCharacter.id}
+            size="lg"
+          />
+          <p className="text-sm text-[var(--color-text-soft)]">
+            {selectedCharacter.name}
+          </p>
+          <p className="font-display text-sm text-[var(--color-accent-yellow)]">
+            コイン {storedData.economy.coins}
+          </p>
+        </div>
 
         {hasBestScores && (
           <div className="relative mx-auto mb-8 max-w-md rounded border border-[var(--color-border-blue)] bg-black/30 p-3 text-left">
@@ -97,6 +117,9 @@ export function TitleScreen({
           className="relative mx-auto flex max-w-md flex-col gap-3"
           aria-label="メインメニュー"
         >
+          <GameButton variant="secondary" onClick={onOpenCharacters}>
+            忍者屋敷
+          </GameButton>
           <GameButton variant="secondary" onClick={onOpenRecords}>
             プレイ記録
           </GameButton>

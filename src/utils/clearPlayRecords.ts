@@ -2,7 +2,7 @@ import type { StoredAppData } from '../types/records'
 import { createEmptyBestByDifficulty } from '../types/records'
 
 /**
- * Clears play records while preserving user settings.
+ * Clears play records while preserving settings and economy.
  */
 export function clearPlayRecords(data: StoredAppData): StoredAppData {
   return {

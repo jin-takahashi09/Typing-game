@@ -59,11 +59,20 @@ export interface GameResultSummary {
   accuracy: number
 }
 
+export interface PlayCoinSummary {
+  stageClearCoins: number
+  resultBonusCoins: number
+  totalEarned: number
+  stageAwards: readonly { stage: number; coins: number }[]
+  balanceAfter: number
+}
+
 export interface ResultViewModel {
   summary: GameResultSummary
   comparison: PlayComparison
   saveError: string | null
   playSessionId: number
+  coinSummary: PlayCoinSummary
 }
 
 export type GameAction =

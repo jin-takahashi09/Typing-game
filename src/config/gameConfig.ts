@@ -6,7 +6,7 @@ export const gameConfig = {
   hudStatsUpdateIntervalMs: 250,
   recentPlaysLimit: 50,
   storageKey: 'shinobi-keys-data',
-  storageVersion: 1,
+  storageVersion: 2,
   /** rAF の異常に大きな delta を抑える上限（ms） */
   maxDeltaMs: 50,
   /** 撃破演出後にターゲットを削除するまでの猶予（ms） */

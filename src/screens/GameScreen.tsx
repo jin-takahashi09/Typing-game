@@ -16,6 +16,7 @@ import { FallingTarget } from '../components/game/FallingTarget'
 import { SlashEffect } from '../components/game/SlashEffect'
 import { ComboDisplay } from '../components/game/ComboDisplay'
 import { PauseOverlay } from '../components/game/PauseOverlay'
+import { StageClearCoinPopup } from '../components/game/StageClearCoinPopup'
 import {
   createInitialGameState,
   gameReducer,
@@ -46,9 +47,21 @@ import {
 } from '../utils/calculateTypingStats'
 import { computeElapsedMs } from '../utils/elapsedTime'
 import { processRomajiInput } from '../utils/romajiMatcher'
+import {
+  createPlayCoinTracker,
+  summarizePlayCoins,
+  tryAwardResultBonus,
+  tryAwardStageClear,
+  type PlayCoinTracker,
+} from '../utils/coinRewards'
 import { getSoundManager } from '../audio/SoundManager'
 import type { DifficultyId } from '../types/app'
-import type { GameResultSummary, GameTarget, NinjaAnimationState } from '../types/game'
+import type {
+  GameResultSummary,
+  GameTarget,
+  NinjaAnimationState,
+  PlayCoinSummary,
+} from '../types/game'
 import type { TypingProblem } from '../types/typing'
 
 interface SlashItem {
@@ -67,12 +80,18 @@ interface ComboPopup {
 interface GameScreenProps {
   difficulty: DifficultyId
   playSessionId: number
+  characterId: string
   volume: number
   muted: boolean
   reducedMotion: boolean
   onVolumeChange: (volume: number) => void
   onMutedChange: (muted: boolean) => void
-  onGameOver: (result: GameResultSummary, playSessionId: number) => void
+  onAwardStageCoins: (amount: number) => void
+  onGameOver: (
+    result: GameResultSummary,
+    playSessionId: number,
+    coinSummary: Omit<PlayCoinSummary, 'balanceAfter'>,
+  ) => void
   onRetry: () => void
   onAbandonToTitle: () => void
 }
@@ -92,11 +111,13 @@ function toTypingProblem(target: GameTarget, difficulty: DifficultyId): TypingPr
 export function GameScreen({
   difficulty,
   playSessionId,
+  characterId,
   volume,
   muted,
   reducedMotion,
   onVolumeChange,
   onMutedChange,
+  onAwardStageCoins,
   onGameOver,
   onRetry,
   onAbandonToTitle,
@@ -115,6 +136,10 @@ export function GameScreen({
   const [ninjaAnim, setNinjaAnim] = useState<NinjaAnimationState>('idle')
   const [slashes, setSlashes] = useState<SlashItem[]>([])
   const [comboPopup, setComboPopup] = useState<ComboPopup | null>(null)
+  const [stageCoinPopup, setStageCoinPopup] = useState<{
+    stage: number
+    coins: number
+  } | null>(null)
 
   const targetsRef = useRef<Map<string, TargetMotion>>(new Map())
   const elementRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -124,6 +149,7 @@ export function GameScreen({
   const sessionIdRef = useRef(0)
   const isPlayingRef = useRef(true)
   const soundStartedRef = useRef(false)
+  const playCoinTrackerRef = useRef<PlayCoinTracker>(createPlayCoinTracker())
 
   useEffect(() => {
     stateRef.current = state
@@ -264,6 +290,10 @@ export function GameScreen({
         },
         elapsedMs,
       )
+      const resultBonus = tryAwardResultBonus(playCoinTrackerRef.current, state.score)
+      playCoinTrackerRef.current = resultBonus.tracker
+      const coinSummary = summarizePlayCoins(playCoinTrackerRef.current)
+
       onGameOver(
         {
           difficulty: state.difficulty,
@@ -279,6 +309,7 @@ export function GameScreen({
           accuracy: stats.accuracy,
         },
         playSessionId,
+        coinSummary,
       )
     }
   }, [state, onGameOver, playSessionId])
@@ -295,8 +326,18 @@ export function GameScreen({
       return
     }
     getSoundManager().playSfx('stageUp')
+
+    const clearedStage = state.stage - 1
+    const award = tryAwardStageClear(playCoinTrackerRef.current, clearedStage)
+    if (award.awarded) {
+      playCoinTrackerRef.current = award.tracker
+      onAwardStageCoins(award.coins)
+      setStageCoinPopup({ stage: clearedStage, coins: award.coins })
+      schedule(() => setStageCoinPopup(null), 1600)
+    }
+
     schedule(() => dispatch({ type: 'CLEAR_STAGE_UP_FLASH' }), 450)
-  }, [state.showStageUpFlash, schedule])
+  }, [state.showStageUpFlash, state.stage, schedule, onAwardStageCoins])
 
   const registerElement = useCallback((id: string, element: HTMLElement | null) => {
     if (element) {
@@ -625,7 +666,18 @@ export function GameScreen({
           />
         )}
 
-        <NinjaPlayer xPercent={ninjaX} animation={ninjaAnim} />
+        <NinjaPlayer
+          xPercent={ninjaX}
+          animation={ninjaAnim}
+          characterId={characterId}
+        />
+
+        {stageCoinPopup && (
+          <StageClearCoinPopup
+            stage={stageCoinPopup.stage}
+            coins={stageCoinPopup.coins}
+          />
+        )}
 
         {config.showBeginnerGuide && state.destroyedTargets === 0 && (
           <p className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[90%] -translate-x-1/2 text-center text-sm text-[var(--color-text-soft)] md:bottom-32">
@@ -635,6 +687,7 @@ export function GameScreen({
 
         {state.status === 'paused' && (
           <PauseOverlay
+            characterId={characterId}
             volume={volume}
             muted={muted}
             onResume={resumeGame}

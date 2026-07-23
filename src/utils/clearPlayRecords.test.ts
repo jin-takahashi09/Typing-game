@@ -54,4 +54,15 @@ describe('clearPlayRecords', () => {
     expect(cleared.recentPlays).toEqual([])
     expect(cleared.settings).toEqual(data.settings)
   })
+
+  it('preserves economy when clearing records', () => {
+    const data = createDefaultStoredData()
+    data.economy = {
+      coins: 250,
+      ownedCharacterIds: ['shinobi-default', 'shinobi-red'],
+      selectedCharacterId: 'shinobi-red',
+    }
+    const cleared = clearPlayRecords(data)
+    expect(cleared.economy).toEqual(data.economy)
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createDefaultStoredData } from '../types/records'
+import { STORAGE_SCHEMA_VERSION, createDefaultStoredData } from '../types/records'
 import {
   STORAGE_KEY,
   createMemoryStorageAdapter,
@@ -34,7 +34,7 @@ describe('storage', () => {
 
     const loaded = loadStoredData(adapter)
     expect(loaded.recoveredFromError).toBe(true)
-    expect(loaded.data.version).toBe(1)
+    expect(loaded.data.version).toBe(STORAGE_SCHEMA_VERSION)
   })
 
   it('returns save failure instead of throwing on quota errors', () => {

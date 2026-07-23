@@ -11,6 +11,7 @@ import {
   createDefaultStoredData,
   createEmptyBestByDifficulty,
 } from '../types/records'
+import { normalizeEconomy, createDefaultEconomy } from './economy'
 
 const DIFFICULTY_IDS: DifficultyId[] = ['trainee', 'ninja', 'master']
 const MOTION_PREFERENCES: MotionPreference[] = ['system', 'reduced', 'full']
@@ -171,6 +172,16 @@ const migrationSteps: Partial<Record<number, MigrationStep>> = {
     }
     return { ...raw, version: 1 }
   },
+  1: (raw) => {
+    if (!isObject(raw)) {
+      return createDefaultStoredData()
+    }
+    return {
+      ...raw,
+      version: 2,
+      economy: createDefaultEconomy(),
+    }
+  },
 }
 
 export function migrateStoredData(raw: unknown): unknown {
@@ -213,6 +224,7 @@ export function validateAndNormalize(raw: unknown): StoredAppData {
       defaults.bestByDifficulty,
     ),
     recentPlays: normalizeRecentPlays(raw.recentPlays),
+    economy: normalizeEconomy(raw.economy),
   }
 }
 

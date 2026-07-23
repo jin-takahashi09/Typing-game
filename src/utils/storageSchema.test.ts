@@ -43,12 +43,27 @@ describe('storageSchema', () => {
     expect(data.recentPlays).toHaveLength(1)
   })
 
-  it('migrates version 0 data to version 1', () => {
+  it('migrates version 0 data through to current schema', () => {
     const raw = { settings: {}, aggregates: {}, recentPlays: [] }
     expect(extractSchemaVersion(raw)).toBe(0)
 
     const migrated = parseStoredData(raw)
     expect(migrated.version).toBe(STORAGE_SCHEMA_VERSION)
+    expect(migrated.economy.ownedCharacterIds).toContain('shinobi-default')
+  })
+
+  it('migrates version 1 data to version 2 with default economy', () => {
+    const migrated = parseStoredData({
+      version: 1,
+      settings: { volume: 0.4, muted: true, lastDifficulty: 'ninja', motionPreference: 'reduced' },
+      aggregates: { totalPlays: 1, totalTypedChars: 5, bestComboAll: 2 },
+      bestByDifficulty: { trainee: null, ninja: null, master: null },
+      recentPlays: [],
+    })
+    expect(migrated.version).toBe(2)
+    expect(migrated.economy.coins).toBe(0)
+    expect(migrated.settings.volume).toBe(0.4)
+    expect(migrated.aggregates.totalPlays).toBe(1)
   })
 
   it('falls back to defaults for unknown future versions', () => {

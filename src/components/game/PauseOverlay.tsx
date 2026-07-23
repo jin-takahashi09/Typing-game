@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { GameButton } from '../common/GameButton'
+import { CharacterPreview } from '../common/CharacterPreview'
 import { useDialogA11y } from '../../hooks/useFocusTrap'
 
 interface PauseOverlayProps {
+  characterId: string
   volume: number
   muted: boolean
   onResume: () => void
@@ -13,6 +15,7 @@ interface PauseOverlayProps {
 }
 
 export function PauseOverlay({
+  characterId,
   volume,
   muted,
   onResume,
@@ -51,10 +54,14 @@ export function PauseOverlay({
       >
         <h2
           id="pause-title"
-          className="font-display mb-6 text-2xl text-[var(--color-accent-yellow)]"
+          className="font-display mb-4 text-2xl text-[var(--color-accent-yellow)]"
         >
           一時停止
         </h2>
+
+        <div className="mb-4 flex justify-center">
+          <CharacterPreview characterId={characterId} size="md" />
+        </div>
 
         <div className="mb-6 space-y-3 text-left">
           <label className="block text-sm text-[var(--color-text-soft)]">

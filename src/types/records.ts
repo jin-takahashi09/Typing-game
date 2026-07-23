@@ -1,5 +1,6 @@
 import type { DifficultyId, MotionPreference } from './app'
 import { gameConfig } from '../config/gameConfig'
+import { DEFAULT_CHARACTER_ID } from '../config/characters'
 
 export const STORAGE_SCHEMA_VERSION = gameConfig.storageVersion
 
@@ -54,12 +55,19 @@ export interface PlayComparison {
   isNewBestAccuracy: boolean
 }
 
+export interface StoredEconomy {
+  coins: number
+  ownedCharacterIds: string[]
+  selectedCharacterId: string
+}
+
 export interface StoredAppData {
   version: number
   settings: StoredSettings
   aggregates: StoredAggregates
   bestByDifficulty: Record<DifficultyId, BestRecord | null>
   recentPlays: PlayRecord[]
+  economy: StoredEconomy
 }
 
 export type SaveStorageError = 'quota' | 'unavailable' | 'unknown'
@@ -91,6 +99,11 @@ export function createDefaultStoredData(): StoredAppData {
       master: null,
     },
     recentPlays: [],
+    economy: {
+      coins: 0,
+      ownedCharacterIds: [DEFAULT_CHARACTER_ID],
+      selectedCharacterId: DEFAULT_CHARACTER_ID,
+    },
   }
 }
 

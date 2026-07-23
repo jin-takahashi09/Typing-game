@@ -88,7 +88,7 @@ export function RecordsScreen({
       <ConfirmDialog
         open={confirmOpen}
         title="記録を削除しますか？"
-        description="難易度別ベストとプレイ履歴、集計値をすべて削除します。音量・ミュート・モーション設定は残ります。この操作は取り消せません。"
+        description="難易度別ベストとプレイ履歴、集計値をすべて削除します。所持コイン・購入済みキャラクター・選択中キャラクター・音量などの設定は残ります。この操作は取り消せません。"
         confirmLabel="削除する"
         cancelLabel="キャンセル"
         onCancel={() => setConfirmOpen(false)}

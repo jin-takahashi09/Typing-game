@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { getDifficultyConfig } from '../config/difficultyConfig'
 import { GameButton } from '../components/common/GameButton'
+import { CharacterPreview } from '../components/common/CharacterPreview'
 import { PlayComparisonPanel } from '../components/records/PlayComparisonPanel'
 import { useFocusOnMount } from '../hooks/useFocusTrap'
 import { formatElapsedTime } from '../utils/calculateTypingStats'
@@ -8,6 +9,7 @@ import type { ResultViewModel } from '../types/game'
 
 interface ResultScreenProps {
   result: ResultViewModel
+  characterId: string
   onRetry: () => void
   onChangeDifficulty: () => void
   onTitle: () => void
@@ -15,13 +17,14 @@ interface ResultScreenProps {
 
 export function ResultScreen({
   result,
+  characterId,
   onRetry,
   onChangeDifficulty,
   onTitle,
 }: ResultScreenProps) {
   const headingRef = useRef<HTMLHeadingElement | null>(null)
   useFocusOnMount(headingRef)
-  const { summary, comparison, saveError } = result
+  const { summary, comparison, saveError, coinSummary } = result
   const config = getDifficultyConfig(summary.difficulty)
 
   return (
@@ -30,10 +33,14 @@ export function ResultScreen({
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="font-display mb-6 text-2xl text-[var(--color-accent-red)] outline-none sm:mb-8 sm:text-3xl md:text-4xl"
+          className="font-display mb-4 text-2xl text-[var(--color-accent-red)] outline-none sm:mb-6 sm:text-3xl md:text-4xl"
         >
           DEFENSE FAILED
         </h1>
+
+        <div className="mb-6 flex justify-center">
+          <CharacterPreview characterId={characterId} size="md" />
+        </div>
 
         <PlayComparisonPanel comparison={comparison} />
 
@@ -45,6 +52,39 @@ export function ResultScreen({
             {saveError}
           </p>
         )}
+
+        <div
+          className="mb-6 rounded-[var(--radius-lg)] border-2 border-[var(--color-border-yellow)] bg-slate-900/80 p-4 text-left"
+          aria-label="コイン獲得"
+        >
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+            コイン
+          </p>
+          <dl className="space-y-2 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-[var(--color-text-soft)]">ステージクリア報酬</dt>
+              <dd className="font-display text-[var(--color-accent-yellow)]">
+                +{coinSummary.stageClearCoins}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-[var(--color-text-soft)]">成績ボーナス</dt>
+              <dd className="font-display text-[var(--color-accent-yellow)]">
+                +{coinSummary.resultBonusCoins}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3 border-t border-[var(--color-border-blue)] pt-2">
+              <dt className="text-white">今回の合計</dt>
+              <dd className="font-display text-[var(--color-accent-yellow)]">
+                +{coinSummary.totalEarned}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-[var(--color-text-soft)]">現在の所持コイン</dt>
+              <dd className="font-display text-white">{coinSummary.balanceAfter}</dd>
+            </div>
+          </dl>
+        </div>
 
         <div className="mb-8 rounded-[var(--radius-lg)] border-2 border-[var(--color-border-blue)] bg-slate-800/80 p-6 text-left shadow-2xl">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4">

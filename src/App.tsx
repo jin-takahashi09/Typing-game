@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppScreen, DifficultyId } from './types/app'
-import type { GameResultSummary, ResultViewModel } from './types/game'
+import type { GameResultSummary, PlayCoinSummary, ResultViewModel } from './types/game'
 import type { StoredAppData, StoredSettings } from './types/records'
 import { createDefaultStoredData } from './types/records'
 import { TitleScreen } from './screens/TitleScreen'
@@ -10,10 +10,17 @@ import { ResultScreen } from './screens/ResultScreen'
 import { RecordsScreen } from './screens/RecordsScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { HowToScreen } from './screens/HowToScreen'
+import { CharactersScreen } from './screens/CharactersScreen'
 import { loadStoredData, saveStoredData } from './utils/storage'
 import { getSaveErrorMessage, persistPlayResult } from './utils/persistPlayResult'
 import { applyMotionPreference, resolveReducedMotion } from './utils/motionPreference'
 import { clearPlayRecords } from './utils/clearPlayRecords'
+import {
+  awardCoins,
+  getEconomyErrorMessage,
+  purchaseCharacter,
+  selectCharacter,
+} from './utils/economy'
 import { getSoundManager } from './audio/SoundManager'
 
 const initialLoad = loadStoredData()
@@ -25,8 +32,10 @@ export default function App() {
   const [storedData, setStoredData] = useState<StoredAppData>(initialLoad.data)
   const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null)
   const [recordsClearError, setRecordsClearError] = useState<string | null>(null)
+  const [charactersError, setCharactersError] = useState<string | null>(null)
   const [gameSession, setGameSession] = useState(0)
   const savedPlaySessionsRef = useRef<Set<number>>(new Set())
+  const purchasingRef = useRef(false)
   const storedDataRef = useRef(storedData)
 
   useEffect(() => {
@@ -42,6 +51,13 @@ export default function App() {
     sound.setVolume(storedData.settings.volume)
     sound.setMuted(storedData.settings.muted)
   }, [storedData.settings.volume, storedData.settings.muted])
+
+  const commitStoredData = useCallback((next: StoredAppData): boolean => {
+    storedDataRef.current = next
+    setStoredData(next)
+    const saveResult = saveStoredData(next)
+    return saveResult.ok
+  }, [])
 
   const updateSettings = useCallback((patch: Partial<StoredSettings>) => {
     const next: StoredAppData = {
@@ -78,19 +94,92 @@ export default function App() {
 
   const handleClearRecords = useCallback((): boolean => {
     const next = clearPlayRecords(storedDataRef.current)
-    storedDataRef.current = next
-    setStoredData(next)
-    const saveResult = saveStoredData(next)
-    if (!saveResult.ok) {
+    const ok = commitStoredData(next)
+    if (!ok) {
       setRecordsClearError(
-        getSaveErrorMessage(saveResult.error) ??
-          '記録の削除に失敗しました。画面上ではクリアされていますが、再読み込みで戻る可能性があります。',
+        '記録の削除に失敗しました。画面上ではクリアされていますが、再読み込みで戻る可能性があります。',
       )
       return false
     }
     setRecordsClearError(null)
     return true
-  }, [])
+  }, [commitStoredData])
+
+  const handleAwardStageCoins = useCallback(
+    (amount: number) => {
+      if (amount <= 0) {
+        return
+      }
+      const awarded = awardCoins(storedDataRef.current.economy, amount)
+      if (!awarded.ok) {
+        return
+      }
+      commitStoredData({
+        ...storedDataRef.current,
+        economy: awarded.economy,
+      })
+    },
+    [commitStoredData],
+  )
+
+  const handlePurchaseCharacter = useCallback(
+    (characterId: string): boolean => {
+      if (purchasingRef.current) {
+        return false
+      }
+      purchasingRef.current = true
+      try {
+        const purchased = purchaseCharacter(
+          storedDataRef.current.economy,
+          characterId,
+        )
+        if (!purchased.ok) {
+          setCharactersError(getEconomyErrorMessage(purchased.error))
+          return false
+        }
+        const ok = commitStoredData({
+          ...storedDataRef.current,
+          economy: purchased.economy,
+        })
+        if (!ok) {
+          setCharactersError(
+            '購入結果の保存に失敗しました。画面上は反映されていますが、再読み込みで戻る可能性があります。',
+          )
+          return false
+        }
+        setCharactersError(null)
+        getSoundManager().playSfx('uiClick')
+        return true
+      } finally {
+        purchasingRef.current = false
+      }
+    },
+    [commitStoredData],
+  )
+
+  const handleSelectCharacter = useCallback(
+    (characterId: string): boolean => {
+      const selected = selectCharacter(storedDataRef.current.economy, characterId)
+      if (!selected.ok) {
+        setCharactersError(getEconomyErrorMessage(selected.error))
+        return false
+      }
+      const ok = commitStoredData({
+        ...storedDataRef.current,
+        economy: selected.economy,
+      })
+      if (!ok) {
+        setCharactersError(
+          '選択の保存に失敗しました。画面上は反映されていますが、再読み込みで戻る可能性があります。',
+        )
+        return false
+      }
+      setCharactersError(null)
+      getSoundManager().playSfx('uiClick')
+      return true
+    },
+    [commitStoredData],
+  )
 
   const unlockAudio = useCallback(async () => {
     const sound = getSoundManager()
@@ -112,14 +201,27 @@ export default function App() {
   )
 
   const handleGameOver = useCallback(
-    (summary: GameResultSummary, playSessionId: number) => {
+    (
+      summary: GameResultSummary,
+      playSessionId: number,
+      coinBase: Omit<PlayCoinSummary, 'balanceAfter'>,
+    ) => {
       if (savedPlaySessionsRef.current.has(playSessionId)) {
         setScreen('result')
         return
       }
       savedPlaySessionsRef.current.add(playSessionId)
 
-      const persisted = persistPlayResult(storedDataRef.current, summary)
+      const bonusAward = awardCoins(
+        storedDataRef.current.economy,
+        coinBase.resultBonusCoins,
+      )
+      const withBonus: StoredAppData = {
+        ...storedDataRef.current,
+        economy: bonusAward.economy,
+      }
+
+      const persisted = persistPlayResult(withBonus, summary)
       storedDataRef.current = persisted.data
       setStoredData(persisted.data)
 
@@ -128,6 +230,10 @@ export default function App() {
         comparison: persisted.comparison,
         saveError: getSaveErrorMessage(persisted.saveResult.error),
         playSessionId,
+        coinSummary: {
+          ...coinBase,
+          balanceAfter: persisted.data.economy.coins,
+        },
       })
       setScreen('result')
     },
@@ -142,6 +248,22 @@ export default function App() {
   }, [])
 
   const reducedMotion = resolveReducedMotion(storedData.settings.motionPreference)
+  const selectedCharacterId = storedData.economy.selectedCharacterId
+
+  const titleFallback = (
+    <TitleScreen
+      storedData={createDefaultStoredData()}
+      onStartTraining={async () => {
+        await unlockAudio()
+        setDifficulty(null)
+        setScreen('difficulty')
+      }}
+      onOpenRecords={() => setScreen('records')}
+      onOpenCharacters={() => setScreen('characters')}
+      onOpenSettings={() => setScreen('settings')}
+      onOpenHowTo={() => setScreen('howto')}
+    />
+  )
 
   if (screen === 'game' && !difficulty) {
     return (
@@ -154,19 +276,7 @@ export default function App() {
   }
 
   if (screen === 'result' && (!result || !difficulty)) {
-    return (
-      <TitleScreen
-        storedData={createDefaultStoredData()}
-        onStartTraining={async () => {
-          await unlockAudio()
-          setDifficulty(null)
-          setScreen('difficulty')
-        }}
-        onOpenRecords={() => setScreen('records')}
-        onOpenSettings={() => setScreen('settings')}
-        onOpenHowTo={() => setScreen('howto')}
-      />
-    )
+    return titleFallback
   }
 
   switch (screen) {
@@ -185,11 +295,13 @@ export default function App() {
           key={`${difficulty}-${gameSession}`}
           difficulty={difficulty!}
           playSessionId={gameSession}
+          characterId={selectedCharacterId}
           volume={storedData.settings.volume}
           muted={storedData.settings.muted}
           reducedMotion={reducedMotion}
           onVolumeChange={(volume) => updateSettings({ volume })}
           onMutedChange={(muted) => updateSettings({ muted })}
+          onAwardStageCoins={handleAwardStageCoins}
           onGameOver={handleGameOver}
           onRetry={() => startGame(difficulty!)}
           onAbandonToTitle={goTitle}
@@ -199,6 +311,7 @@ export default function App() {
       return (
         <ResultScreen
           result={result!}
+          characterId={selectedCharacterId}
           onRetry={() => startGame(difficulty!)}
           onChangeDifficulty={() => setScreen('difficulty')}
           onTitle={goTitle}
@@ -214,6 +327,19 @@ export default function App() {
             setScreen('title')
           }}
           onClearRecords={handleClearRecords}
+        />
+      )
+    case 'characters':
+      return (
+        <CharactersScreen
+          economy={storedData.economy}
+          error={charactersError}
+          onBack={() => {
+            setCharactersError(null)
+            setScreen('title')
+          }}
+          onPurchase={handlePurchaseCharacter}
+          onSelect={handleSelectCharacter}
         />
       )
     case 'settings':
@@ -250,6 +376,10 @@ export default function App() {
             getSoundManager().playSfx('uiClick')
             setDifficulty(null)
             setScreen('difficulty')
+          }}
+          onOpenCharacters={() => {
+            getSoundManager().playSfx('uiClick')
+            setScreen('characters')
           }}
           onOpenRecords={() => {
             getSoundManager().playSfx('uiClick')

@@ -12,3 +12,4 @@ export type AppScreen =
   | 'records'
   | 'settings'
   | 'howto'
+  | 'characters'

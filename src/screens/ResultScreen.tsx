@@ -1,6 +1,8 @@
+import { useRef } from 'react'
 import { getDifficultyConfig } from '../config/difficultyConfig'
 import { GameButton } from '../components/common/GameButton'
 import { PlayComparisonPanel } from '../components/records/PlayComparisonPanel'
+import { useFocusOnMount } from '../hooks/useFocusTrap'
 import { formatElapsedTime } from '../utils/calculateTypingStats'
 import type { ResultViewModel } from '../types/game'
 
@@ -17,13 +19,19 @@ export function ResultScreen({
   onChangeDifficulty,
   onTitle,
 }: ResultScreenProps) {
+  const headingRef = useRef<HTMLHeadingElement | null>(null)
+  useFocusOnMount(headingRef)
   const { summary, comparison, saveError } = result
   const config = getDifficultyConfig(summary.difficulty)
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
-      <section className="panel-glow w-full max-w-lg rounded-[var(--radius-xl)] bg-black/90 px-6 py-10 text-center md:px-10">
-        <h1 className="font-display mb-8 text-3xl text-[var(--color-accent-red)] md:text-4xl">
+    <main className="flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
+      <section className="panel-glow w-full max-w-lg rounded-[var(--radius-xl)] bg-black/90 px-4 py-8 text-center sm:px-6 sm:py-10 md:px-10">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="font-display mb-6 text-2xl text-[var(--color-accent-red)] outline-none sm:mb-8 sm:text-3xl md:text-4xl"
+        >
           DEFENSE FAILED
         </h1>
 

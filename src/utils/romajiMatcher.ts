@@ -107,20 +107,41 @@ export function processRomajiInput(
     const node = nodes[path.moraIndex]!
     const nextPartial = path.partial + lower
 
-    if (!isValidPrefix(node.options, nextPartial)) {
-      continue
+    if (isValidPrefix(node.options, nextPartial)) {
+      if (isCompleteMora(node.options, nextPartial)) {
+        nextPaths.push({
+          moraIndex: path.moraIndex + 1,
+          partial: '',
+        })
+      } else {
+        nextPaths.push({
+          moraIndex: path.moraIndex,
+          partial: nextPartial,
+        })
+      }
     }
 
-    if (isCompleteMora(node.options, nextPartial)) {
-      nextPaths.push({
-        moraIndex: path.moraIndex + 1,
-        partial: '',
-      })
-    } else {
-      nextPaths.push({
-        moraIndex: path.moraIndex,
-        partial: nextPartial,
-      })
+    // 長音は直前母音でも入力できるが、代表ローマ字では省略されることがある
+    // （らーめん → ramen）。未入力の「ー」は次モーラへスキップを許可する。
+    if (
+      node.kana === 'ー' &&
+      path.partial === '' &&
+      path.moraIndex + 1 < nodes.length
+    ) {
+      const nextNode = nodes[path.moraIndex + 1]!
+      if (isValidPrefix(nextNode.options, lower)) {
+        if (isCompleteMora(nextNode.options, lower)) {
+          nextPaths.push({
+            moraIndex: path.moraIndex + 2,
+            partial: '',
+          })
+        } else {
+          nextPaths.push({
+            moraIndex: path.moraIndex + 1,
+            partial: lower,
+          })
+        }
+      }
     }
   }
 

@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { GameButton } from '../common/GameButton'
+import { useDialogA11y } from '../../hooks/useFocusTrap'
 
 interface PauseOverlayProps {
   volume: number
@@ -19,14 +21,34 @@ export function PauseOverlay({
   onVolumeChange,
   onMutedChange,
 }: PauseOverlayProps) {
+  const dialogRef = useDialogA11y(true)
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        onResume()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [onResume])
+
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="pause-title"
+      className="absolute inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 px-3 py-4"
+      role="presentation"
     >
-      <div className="w-full max-w-sm rounded-[var(--radius-xl)] border-2 border-[var(--color-border-yellow)] bg-slate-900 p-6 text-center shadow-2xl">
+      <div
+        ref={dialogRef}
+        className="my-auto w-full max-w-sm rounded-[var(--radius-xl)] border-2 border-[var(--color-border-yellow)] bg-slate-900 p-5 text-center shadow-2xl sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pause-title"
+      >
         <h2
           id="pause-title"
           className="font-display mb-6 text-2xl text-[var(--color-accent-yellow)]"

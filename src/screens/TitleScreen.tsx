@@ -1,6 +1,8 @@
+import { useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { difficultyOrder, getDifficultyConfig } from '../config/difficultyConfig'
 import { GameButton } from '../components/common/GameButton'
+import { useFocusOnMount } from '../hooks/useFocusTrap'
 import type { StoredAppData } from '../types/records'
 
 interface TitleScreenProps {
@@ -18,14 +20,17 @@ export function TitleScreen({
   onOpenSettings,
   onOpenHowTo,
 }: TitleScreenProps) {
+  const headingRef = useRef<HTMLHeadingElement | null>(null)
+  useFocusOnMount(headingRef)
+
   const hasBestScores = difficultyOrder.some(
     (id) => storedData.bestByDifficulty[id] !== null,
   )
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+    <main className="flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
       <section
-        className="panel-glow relative w-full max-w-3xl overflow-hidden rounded-[var(--radius-xl)] bg-[var(--color-bg-panel)] px-6 py-12 text-center md:px-12"
+        className="panel-glow relative w-full max-w-3xl overflow-hidden rounded-[var(--radius-xl)] bg-[var(--color-bg-panel)] px-4 py-10 text-center sm:px-6 sm:py-12 md:px-12"
         aria-labelledby="app-title"
       >
         <div
@@ -45,13 +50,15 @@ export function TitleScreen({
         </p>
 
         <h1
+          ref={headingRef}
           id="app-title"
-          className="font-display text-glow-yellow relative mb-6 text-3xl leading-tight text-[var(--color-accent-yellow)] md:text-5xl"
+          tabIndex={-1}
+          className="font-display text-glow-yellow relative mb-6 text-3xl leading-tight text-[var(--color-accent-yellow)] outline-none md:text-5xl"
         >
           {appConfig.name}
         </h1>
 
-        <p className="relative mb-10 text-lg text-[var(--color-text-soft)] md:text-2xl">
+        <p className="relative mb-8 text-base text-[var(--color-text-soft)] sm:mb-10 sm:text-lg md:text-2xl">
           {appConfig.tagline}
         </p>
 

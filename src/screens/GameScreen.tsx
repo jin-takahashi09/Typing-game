@@ -586,7 +586,7 @@ export function GameScreen({
   }, [onRetry])
 
   return (
-    <main className="flex min-h-screen flex-col items-center px-3 py-6 md:px-4">
+    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-2 py-4 sm:px-3 sm:py-6 md:px-4">
       <GameArea damaged={damaged && !reducedMotion} onReady={handleAreaReady}>
         <GameHud
           score={state.score}

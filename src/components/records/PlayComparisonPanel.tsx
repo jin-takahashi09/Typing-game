@@ -5,6 +5,19 @@ interface PlayComparisonPanelProps {
   comparison: PlayComparison
 }
 
+function deltaLabel(value: number | null, unit = ''): string {
+  if (value === null) {
+    return '比較なし'
+  }
+  if (value > 0) {
+    return `増加 ${value}${unit}`
+  }
+  if (value < 0) {
+    return `減少 ${Math.abs(value)}${unit}`
+  }
+  return `変化なし`
+}
+
 export function PlayComparisonPanel({ comparison }: PlayComparisonPanelProps) {
   const hasNewBest =
     comparison.isNewBestScore ||
@@ -42,23 +55,29 @@ export function PlayComparisonPanel({ comparison }: PlayComparisonPanelProps) {
           この難易度での初回プレイです。次回から前回との比較が表示されます。
         </p>
       ) : (
-        <dl className="grid grid-cols-3 gap-3 text-center">
+        <dl className="grid grid-cols-3 gap-2 text-center sm:gap-3">
           <div>
             <dt className="text-xs uppercase text-[var(--color-text-muted)]">Score</dt>
-            <dd className="font-display text-lg text-white">
-              {formatDelta(comparison.scoreDelta)}
+            <dd className="font-display text-base text-white sm:text-lg">
+              <span aria-label={deltaLabel(comparison.scoreDelta)}>
+                {formatDelta(comparison.scoreDelta)}
+              </span>
             </dd>
           </div>
           <div>
             <dt className="text-xs uppercase text-[var(--color-text-muted)]">WPM</dt>
-            <dd className="font-display text-lg text-white">
-              {formatDelta(comparison.wpmDelta)}
+            <dd className="font-display text-base text-white sm:text-lg">
+              <span aria-label={deltaLabel(comparison.wpmDelta)}>
+                {formatDelta(comparison.wpmDelta)}
+              </span>
             </dd>
           </div>
           <div>
             <dt className="text-xs uppercase text-[var(--color-text-muted)]">ACC</dt>
-            <dd className="font-display text-lg text-white">
-              {formatDelta(comparison.accuracyDelta, '%')}
+            <dd className="font-display text-base text-white sm:text-lg">
+              <span aria-label={deltaLabel(comparison.accuracyDelta, 'パーセント')}>
+                {formatDelta(comparison.accuracyDelta, '%')}
+              </span>
             </dd>
           </div>
         </dl>

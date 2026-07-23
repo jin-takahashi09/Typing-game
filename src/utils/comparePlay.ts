@@ -46,6 +46,7 @@ export function buildPlayComparison(
     accuracy: result.accuracy,
     wpm: result.wpm,
     maxCombo: result.maxCombo,
+    characterId: result.characterId,
   }
 
   return {

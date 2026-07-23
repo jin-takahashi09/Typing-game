@@ -1,4 +1,5 @@
 import { getDifficultyConfig } from '../../config/difficultyConfig'
+import { resolveCharacter } from '../../config/characters'
 import type { PlayRecord } from '../../types/records'
 
 interface RecentPlaysListProps {
@@ -40,13 +41,16 @@ export function RecentPlaysList({ plays }: RecentPlaysListProps) {
       <ul className="space-y-2">
         {plays.map((play) => {
           const config = getDifficultyConfig(play.difficulty)
+          const character = resolveCharacter(play.characterId)
           return (
             <li
               key={play.id}
               className="rounded border border-[var(--color-border-blue)] bg-black/40 px-3 py-2"
             >
               <div className="mb-1 flex items-center justify-between gap-2 text-xs text-[var(--color-text-muted)]">
-                <span>{config.displayName}</span>
+                <span>
+                  {config.displayName} / {character.name}
+                </span>
                 <time dateTime={play.playedAt}>{formatPlayedAt(play.playedAt)}</time>
               </div>
               <dl className="grid grid-cols-3 gap-2 text-sm">

@@ -11,6 +11,7 @@ import {
   createDefaultStoredData,
   createEmptyBestByDifficulty,
 } from '../types/records'
+import { DEFAULT_CHARACTER_ID, isKnownCharacterId } from '../config/characters'
 import { normalizeEconomy, createDefaultEconomy } from './economy'
 
 const DIFFICULTY_IDS: DifficultyId[] = ['trainee', 'ninja', 'master']
@@ -113,6 +114,20 @@ function normalizePlayRecord(raw: unknown): PlayRecord | null {
     return null
   }
 
+  const characterIdRaw =
+    typeof raw.characterId === 'string' && isKnownCharacterId(raw.characterId)
+      ? raw.characterId
+      : DEFAULT_CHARACTER_ID
+
+  const abilityBonusScore =
+    raw.abilityBonusScore === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.abilityBonusScore)
+  const abilityBonusCoins =
+    raw.abilityBonusCoins === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.abilityBonusCoins)
+
   return {
     id,
     playedAt,
@@ -127,6 +142,9 @@ function normalizePlayRecord(raw: unknown): PlayRecord | null {
     accuracy: toNonNegativeNumber(raw.accuracy),
     wpm: toNonNegativeNumber(raw.wpm),
     maxCombo: toNonNegativeNumber(raw.maxCombo),
+    characterId: characterIdRaw,
+    ...(abilityBonusScore !== undefined ? { abilityBonusScore } : {}),
+    ...(abilityBonusCoins !== undefined ? { abilityBonusCoins } : {}),
   }
 }
 

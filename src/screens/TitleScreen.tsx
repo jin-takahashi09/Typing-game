@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { difficultyOrder, getDifficultyConfig } from '../config/difficultyConfig'
-import { getCharacterById, DEFAULT_CHARACTER_ID } from '../config/characters'
+import { getCharacterById, DEFAULT_CHARACTER_ID, formatAbilityShort } from '../config/characters'
 import { GameButton } from '../components/common/GameButton'
 import { CharacterPreview } from '../components/common/CharacterPreview'
 import { useFocusOnMount } from '../hooks/useFocusTrap'
@@ -76,6 +76,9 @@ export function TitleScreen({
           />
           <p className="text-sm text-[var(--color-text-soft)]">
             {selectedCharacter.name}
+          </p>
+          <p className="text-xs text-[var(--color-accent-yellow)] sm:text-sm">
+            {formatAbilityShort(selectedCharacter.ability)}
           </p>
           <p className="font-display text-sm text-[var(--color-accent-yellow)]">
             コイン {storedData.economy.coins}

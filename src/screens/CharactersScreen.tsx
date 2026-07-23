@@ -85,6 +85,14 @@ export function CharactersScreen({
                     <p className="mb-2 text-sm text-[var(--color-text-soft)]">
                       {character.description}
                     </p>
+                    <div className="mb-2 rounded border border-[var(--color-border-yellow)]/40 bg-black/30 px-2 py-1.5">
+                      <p className="text-xs font-bold text-[var(--color-accent-yellow)]">
+                        固有能力：{character.ability.name}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--color-text-soft)]">
+                        {character.ability.description}
+                      </p>
+                    </div>
                     <p className="text-xs text-[var(--color-text-muted)]">
                       {character.price === 0 ? '無料' : `${character.price} コイン`}
                     </p>

@@ -3,7 +3,9 @@ interface GameHudProps {
   combo: number
   stage: number
   difficultyLabel: string
+  abilityLabel?: string
   showStageUp: boolean
+  showScoreAbilityHint?: boolean
   elapsedLabel: string
   wpm: number
   accuracy: number
@@ -15,7 +17,9 @@ export function GameHud({
   combo,
   stage,
   difficultyLabel,
+  abilityLabel,
   showStageUp,
+  showScoreAbilityHint = false,
   elapsedLabel,
   wpm,
   accuracy,
@@ -24,13 +28,21 @@ export function GameHud({
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-start gap-1 p-2 sm:gap-2 sm:p-3 md:p-4">
       <div className="flex min-w-0 flex-col gap-1 sm:gap-2">
-        <div className="rounded border border-[var(--color-border-blue)] bg-black/50 px-2 py-1 sm:px-3 sm:py-2">
+        <div className="relative rounded border border-[var(--color-border-blue)] bg-black/50 px-2 py-1 sm:px-3 sm:py-2">
           <span className="mr-1 text-[0.65rem] font-bold uppercase tracking-wider text-[var(--color-text-soft)] sm:mr-2 sm:text-xs">
             Score
           </span>
           <span className="font-display text-base text-[var(--color-accent-yellow)] sm:text-lg md:text-xl">
             {score}
           </span>
+          {showScoreAbilityHint && (
+            <span
+              className="ability-float-text ability-float-text--fire absolute -right-1 top-full mt-1 whitespace-nowrap text-[0.65rem] sm:text-xs"
+              role="status"
+            >
+              紅蓮 +10%
+            </span>
+          )}
         </div>
         <div
           className={[
@@ -74,13 +86,22 @@ export function GameHud({
         )}
       </div>
 
-      <div className="min-w-0 justify-self-end rounded border border-[var(--color-border-blue)] bg-black/50 px-2 py-1 text-right sm:px-3 sm:py-2">
-        <span className="block text-[0.55rem] font-bold uppercase tracking-wider text-[var(--color-text-muted)] sm:text-[0.65rem]">
-          Diff
-        </span>
-        <span className="font-display text-[0.7rem] text-[var(--color-text-soft)] sm:text-sm">
-          {difficultyLabel}
-        </span>
+      <div className="min-w-0 justify-self-end space-y-1 text-right">
+        <div className="rounded border border-[var(--color-border-blue)] bg-black/50 px-2 py-1 sm:px-3 sm:py-2">
+          <span className="block text-[0.55rem] font-bold uppercase tracking-wider text-[var(--color-text-muted)] sm:text-[0.65rem]">
+            Diff
+          </span>
+          <span className="font-display text-[0.7rem] text-[var(--color-text-soft)] sm:text-sm">
+            {difficultyLabel}
+          </span>
+        </div>
+        {abilityLabel && (
+          <div className="rounded border border-[var(--color-border-yellow)] bg-black/50 px-2 py-1">
+            <span className="block text-[0.55rem] text-[var(--color-accent-yellow)] sm:text-[0.65rem]">
+              {abilityLabel}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

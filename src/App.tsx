@@ -28,6 +28,10 @@ import {
   selectCharacter,
 } from './utils/economy'
 import { getSoundManager } from './audio/SoundManager'
+import {
+  useAppHistory,
+  type HistoryEntry,
+} from './hooks/useAppHistory'
 
 const initialLoad = loadStoredData()
 
@@ -40,16 +44,58 @@ export default function App() {
   const [recordsClearError, setRecordsClearError] = useState<string | null>(null)
   const [charactersError, setCharactersError] = useState<string | null>(null)
   const [gameSession, setGameSession] = useState(0)
+  const [browserBackRequest, setBrowserBackRequest] = useState(0)
   const [playCharacter, setPlayCharacter] = useState<ActivePlayCharacter | null>(
     null,
   )
   const savedPlaySessionsRef = useRef<Set<number>>(new Set())
   const purchasingRef = useRef(false)
   const storedDataRef = useRef(storedData)
+  const screenRef = useRef(screen)
 
   useEffect(() => {
     storedDataRef.current = storedData
   }, [storedData])
+
+  useEffect(() => {
+    screenRef.current = screen
+  }, [screen])
+
+  const handleHistoryRestore = useCallback((entry: HistoryEntry) => {
+    if (entry.screen === 'game') {
+      // ゲーム画面への進む操作では二重開始しない（既存セッションを維持）
+      if (screenRef.current === 'game') {
+        return
+      }
+      setScreen('difficulty')
+      return
+    }
+    if (entry.screen === 'result') {
+      setScreen(result ? 'result' : 'title')
+      return
+    }
+    setScreen(entry.screen)
+    if (entry.difficulty !== undefined) {
+      setDifficulty(entry.difficulty)
+    }
+  }, [result])
+
+  const handleGameBackRequest = useCallback(() => {
+    setBrowserBackRequest((value) => value + 1)
+  }, [])
+
+  const isInGameSession = useCallback(() => {
+    return screenRef.current === 'game'
+  }, [])
+
+  const { requestBack } = useAppHistory({
+    screen,
+    difficulty,
+    onGameBackRequest: handleGameBackRequest,
+    onRestore: handleHistoryRestore,
+    isInGameSession,
+  })
+
 
   useEffect(() => {
     applyMotionPreference(storedData.settings.motionPreference)
@@ -290,7 +336,7 @@ export default function App() {
     return (
       <DifficultyScreen
         key="fallback"
-        onBack={() => setScreen('title')}
+        onBack={requestBack}
         onStart={startGame}
       />
     )
@@ -305,7 +351,7 @@ export default function App() {
       return (
         <DifficultyScreen
           key={difficulty ?? 'fresh'}
-          onBack={() => setScreen('title')}
+          onBack={requestBack}
           onStart={startGame}
           initialDifficulty={difficulty ?? undefined}
         />
@@ -320,6 +366,8 @@ export default function App() {
           volume={storedData.settings.volume}
           muted={storedData.settings.muted}
           reducedMotion={reducedMotion}
+          browserBackRequest={browserBackRequest}
+          coins={storedData.economy.coins}
           onVolumeChange={(volume) => updateSettings({ volume })}
           onMutedChange={(muted) => updateSettings({ muted })}
           onAwardStageCoins={handleAwardStageCoins}
@@ -345,7 +393,7 @@ export default function App() {
           clearError={recordsClearError}
           onBack={() => {
             setRecordsClearError(null)
-            setScreen('title')
+            requestBack()
           }}
           onClearRecords={handleClearRecords}
         />
@@ -357,7 +405,7 @@ export default function App() {
           error={charactersError}
           onBack={() => {
             setCharactersError(null)
-            setScreen('title')
+            requestBack()
           }}
           onPurchase={handlePurchaseCharacter}
           onSelect={handleSelectCharacter}
@@ -369,7 +417,7 @@ export default function App() {
           settings={storedData.settings}
           saveError={settingsSaveError}
           onChange={updateSettings}
-          onBack={() => setScreen('title')}
+          onBack={requestBack}
           onTestSound={async () => {
             await unlockAudio()
             getSoundManager().playSfx('uiClick')
@@ -384,7 +432,7 @@ export default function App() {
             setDifficulty(null)
             setScreen('difficulty')
           }}
-          onBack={() => setScreen('title')}
+          onBack={requestBack}
         />
       )
     case 'title':

@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { GameButton } from '../components/common/GameButton'
+import { BackButton } from '../components/common/BackButton'
 import { useFocusOnMount } from '../hooks/useFocusTrap'
 import type { MotionPreference } from '../types/app'
 import type { StoredSettings } from '../types/records'
@@ -41,8 +42,9 @@ export function SettingsScreen({
   useFocusOnMount(headingRef)
 
   return (
-    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
+    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6">
       <section className="panel-glow w-full max-w-lg rounded-[var(--radius-xl)] bg-black/90 px-4 py-6 sm:px-6 sm:py-8 md:px-10">
+        <BackButton onClick={onBack} />
         <h1
           ref={headingRef}
           tabIndex={-1}
@@ -121,10 +123,6 @@ export function SettingsScreen({
             ))}
           </div>
         </section>
-
-        <GameButton variant="ghost" onClick={onBack}>
-          タイトルへ戻る
-        </GameButton>
       </section>
     </main>
   )

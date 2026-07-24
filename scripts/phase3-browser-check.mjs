@@ -90,10 +90,10 @@ async function runChecks() {
     }
 
     const bodyBefore = await page.locator('body').innerText()
-    if (bodyBefore.includes('WPM') && bodyBefore.includes('ACC')) {
-      pass('hud: shows wpm and accuracy')
+    if (bodyBefore.includes('WPM') && /HP/.test(bodyBefore)) {
+      pass('hud: shows wpm and hp')
     } else {
-      fail('hud: shows wpm and accuracy', bodyBefore.slice(0, 400))
+      fail('hud: shows wpm and hp', bodyBefore.slice(0, 400))
     }
 
     if (first?.romaji) {

@@ -8,6 +8,8 @@ interface PauseOverlayProps {
   playCharacter: ActivePlayCharacter
   volume: number
   muted: boolean
+  /** ブラウザ戻るなど、終了確認を強調する場合 */
+  confirmExit?: boolean
   onResume: () => void
   onRetry: () => void
   onTitle: () => void
@@ -19,6 +21,7 @@ export function PauseOverlay({
   playCharacter,
   volume,
   muted,
+  confirmExit = false,
   onResume,
   onRetry,
   onTitle,
@@ -57,8 +60,18 @@ export function PauseOverlay({
           id="pause-title"
           className="font-display mb-4 text-2xl text-[var(--color-accent-yellow)]"
         >
-          一時停止
+          {confirmExit ? 'ゲーム終了の確認' : '一時停止'}
         </h2>
+
+        {confirmExit && (
+          <p
+            className="mb-4 text-sm text-[var(--color-accent-red)]"
+            data-testid="game-exit-confirm"
+            role="status"
+          >
+            ブラウザの戻る操作が検出されました。プレイを終了する場合は「タイトルへ戻る」を選んでください。
+          </p>
+        )}
 
         <div className="mb-4 flex justify-center">
           <CharacterPreview characterId={playCharacter.characterId} size="md" />

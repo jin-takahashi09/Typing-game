@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { characters } from '../config/characters'
 import { GameButton } from '../components/common/GameButton'
+import { BackButton } from '../components/common/BackButton'
 import { CharacterPreview } from '../components/common/CharacterPreview'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { useFocusOnMount } from '../hooks/useFocusTrap'
@@ -28,8 +29,9 @@ export function CharactersScreen({
   const pendingCharacter = characters.find((item) => item.id === pendingPurchaseId) ?? null
 
   return (
-    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
+    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6">
       <section className="panel-glow w-full max-w-2xl rounded-[var(--radius-xl)] bg-black/90 px-4 py-6 sm:px-6 sm:py-8 md:px-10">
+        <BackButton onClick={onBack} />
         <h1
           ref={headingRef}
           tabIndex={-1}
@@ -135,12 +137,6 @@ export function CharactersScreen({
             )
           })}
         </ul>
-
-        <div className="mt-8">
-          <GameButton variant="ghost" onClick={onBack}>
-            タイトルへ戻る
-          </GameButton>
-        </div>
       </section>
 
       <ConfirmDialog

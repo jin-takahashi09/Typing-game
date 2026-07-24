@@ -37,8 +37,18 @@ export function ResultScreen({
           tabIndex={-1}
           className="font-display mb-4 text-2xl text-[var(--color-accent-red)] outline-none sm:mb-6 sm:text-3xl md:text-4xl"
         >
-          DEFENSE FAILED
+          {summary.endReason === 'timeout' ? 'TIME UP' : 'DEFENSE FAILED'}
         </h1>
+
+        <p
+          className="mb-4 text-sm text-[var(--color-text-soft)]"
+          data-testid="end-reason"
+        >
+          終了理由：
+          {(summary.endReason ?? 'defense') === 'timeout'
+            ? '時間切れ'
+            : 'HPが0になった'}
+        </p>
 
         <div className="mb-4 flex flex-col items-center gap-2">
           <CharacterPreview characterId={character.id} size="md" />

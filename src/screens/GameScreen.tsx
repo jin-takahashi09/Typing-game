@@ -6,7 +6,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import { getDifficultyConfig } from '../config/difficultyConfig'
+import {
+  getDifficultyConfig,
+  getMaxActiveTargetsForStage,
+} from '../config/difficultyConfig'
 import { gameConfig } from '../config/gameConfig'
 import type { ActivePlayCharacter } from '../config/characters'
 import { GameArea } from '../components/game/GameArea'
@@ -17,7 +20,6 @@ import { FallingTarget } from '../components/game/FallingTarget'
 import { SlashEffect } from '../components/game/SlashEffect'
 import { ComboDisplay } from '../components/game/ComboDisplay'
 import { PauseOverlay } from '../components/game/PauseOverlay'
-import { StageClearCoinPopup } from '../components/game/StageClearCoinPopup'
 import { AbilityFloatText } from '../components/game/AbilityFloatText'
 import {
   createInitialGameState,
@@ -41,13 +43,17 @@ import {
 } from '../features/game/targetSpawner'
 import { useGameLoop, type TargetMotion } from '../hooks/useGameLoop'
 import { useKeyboardInput } from '../hooks/useKeyboardInput'
-import { selectTypingProblem } from '../utils/selectTypingProblem'
+import { createProblemBag, type ProblemBag } from '../utils/problemBag'
 import { calculateScore } from '../utils/calculateScore'
 import {
   buildTypingStats,
-  formatElapsedTime,
 } from '../utils/calculateTypingStats'
 import { computeElapsedMs } from '../utils/elapsedTime'
+import {
+  computeRemainingMs,
+  formatRemainingTime,
+  isTimeUp,
+} from '../utils/remainingTime'
 import { processRomajiInput } from '../utils/romajiMatcher'
 import {
   createPlayCoinTracker,
@@ -91,6 +97,10 @@ interface GameScreenProps {
   volume: number
   muted: boolean
   reducedMotion: boolean
+  /** ブラウザ戻る操作の要求カウンタ（増加時に一時停止＋終了確認） */
+  browserBackRequest?: number
+  /** 現在の所持コイン（localStorage と同期） */
+  coins: number
   onVolumeChange: (volume: number) => void
   onMutedChange: (muted: boolean) => void
   onAwardStageCoins: (amount: number) => void
@@ -122,6 +132,8 @@ export function GameScreen({
   volume,
   muted,
   reducedMotion,
+  browserBackRequest = 0,
+  coins,
   onVolumeChange,
   onMutedChange,
   onAwardStageCoins,
@@ -143,29 +155,30 @@ export function GameScreen({
   const [ninjaAnim, setNinjaAnim] = useState<NinjaAnimationState>('idle')
   const [slashes, setSlashes] = useState<SlashItem[]>([])
   const [comboPopup, setComboPopup] = useState<ComboPopup | null>(null)
-  const [stageCoinPopup, setStageCoinPopup] = useState<{
-    stage: number
-    coins: number
-    abilityBonusCoins: number
-  } | null>(null)
   const [showScoreBurst, setShowScoreBurst] = useState(false)
   const [showScoreAbilityHint, setShowScoreAbilityHint] = useState(false)
   const [showGuardBurst, setShowGuardBurst] = useState(false)
   const [guardFloat, setGuardFloat] = useState<{ reducedBy: number } | null>(
     null,
   )
+  const [pausedFromBrowserBack, setPausedFromBrowserBack] = useState(false)
+  const [coinGainFlash, setCoinGainFlash] = useState<number | null>(null)
+  const [goldAbilityFlash, setGoldAbilityFlash] = useState<number | null>(null)
 
   const targetsRef = useRef<Map<string, TargetMotion>>(new Map())
   const elementRefs = useRef<Map<string, HTMLElement>>(new Map())
   const timersRef = useRef<Set<number>>(new Set())
   const stateRef = useRef(state)
   const endedRef = useRef(false)
-  const sessionIdRef = useRef(0)
   const isPlayingRef = useRef(true)
   const soundStartedRef = useRef(false)
   const playCoinTrackerRef = useRef<PlayCoinTracker>(createPlayCoinTracker())
   const abilityBonusScoreRef = useRef(0)
   const abilityBonusCoinsRef = useRef(0)
+  const problemBagRef = useRef<ProblemBag | null>(null)
+  if (problemBagRef.current === null) {
+    problemBagRef.current = createProblemBag(difficulty)
+  }
 
   useEffect(() => {
     abilityBonusScoreRef.current = 0
@@ -234,9 +247,15 @@ export function GameScreen({
     }
   }, [clearTimers])
 
-  const pauseGame = useCallback(() => {
+  const pauseGame = useCallback((fromBrowserBack = false) => {
     if (stateRef.current.status !== 'playing') {
+      if (fromBrowserBack && stateRef.current.status === 'paused') {
+        setPausedFromBrowserBack(true)
+      }
       return
+    }
+    if (fromBrowserBack) {
+      setPausedFromBrowserBack(true)
     }
     dispatch({ type: 'PAUSE_GAME', atMs: Date.now() })
     const sound = getSoundManager()
@@ -248,6 +267,7 @@ export function GameScreen({
     if (stateRef.current.status !== 'paused') {
       return
     }
+    setPausedFromBrowserBack(false)
     dispatch({ type: 'RESUME_GAME', atMs: Date.now() })
     const sound = getSoundManager()
     sound.playSfx('resume')
@@ -256,11 +276,23 @@ export function GameScreen({
 
   const togglePause = useCallback(() => {
     if (stateRef.current.status === 'playing') {
-      pauseGame()
+      pauseGame(false)
     } else if (stateRef.current.status === 'paused') {
       resumeGame()
     }
   }, [pauseGame, resumeGame])
+
+  useEffect(() => {
+    if (browserBackRequest <= 0) {
+      return
+    }
+    const timerId = window.setTimeout(() => {
+      pauseGame(true)
+    }, 0)
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [browserBackRequest, pauseGame])
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -279,14 +311,39 @@ export function GameScreen({
       return
     }
 
-    const intervalId = window.setInterval(() => {
-      setHudNowMs(Date.now())
-    }, gameConfig.hudStatsUpdateIntervalMs)
+    const tick = () => {
+      const now = Date.now()
+      setHudNowMs(now)
+      const current = stateRef.current
+      if (current.status !== 'playing' || endedRef.current) {
+        return
+      }
+      if (
+        isTimeUp(
+          {
+            gameStartedAtMs: current.gameStartedAtMs,
+            pausedTotalMs: current.pausedTotalMs,
+            pausedAtMs: current.pausedAtMs,
+          },
+          now,
+          config.timeLimitSeconds,
+        )
+      ) {
+        isPlayingRef.current = false
+        dispatch({ type: 'END_GAME', reason: 'timeout' })
+      }
+    }
+
+    const intervalId = window.setInterval(
+      tick,
+      gameConfig.hudStatsUpdateIntervalMs,
+    )
+    tick()
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [state.status, state.gameStartedAtMs])
+  }, [state.status, state.gameStartedAtMs, config.timeLimitSeconds])
 
   useEffect(() => {
     if (state.status === 'gameover' && !endedRef.current) {
@@ -331,12 +388,14 @@ export function GameScreen({
           characterId: playCharacter.characterId,
           abilityBonusScore: abilityBonusScoreRef.current,
           abilityBonusCoins: abilityBonusCoinsRef.current,
+          endReason: state.endReason ?? 'defense',
+          timeLimitSeconds: config.timeLimitSeconds,
         },
         playSessionId,
         coinSummary,
       )
     }
-  }, [state, onGameOver, playSessionId, playCharacter.characterId])
+  }, [state, onGameOver, playSessionId, playCharacter.characterId, config.timeLimitSeconds])
 
   useEffect(() => {
     if (!state.showMissFeedback) {
@@ -361,12 +420,12 @@ export function GameScreen({
       playCoinTrackerRef.current = { ...award.tracker, stageAwards: awards }
       abilityBonusCoinsRef.current += applied.bonusCoins
       onAwardStageCoins(applied.finalCoins)
-      setStageCoinPopup({
-        stage: clearedStage,
-        coins: applied.finalCoins,
-        abilityBonusCoins: applied.bonusCoins,
-      })
-      schedule(() => setStageCoinPopup(null), 1600)
+      setCoinGainFlash(applied.finalCoins)
+      schedule(() => setCoinGainFlash(null), 900)
+      if (applied.bonusCoins > 0) {
+        setGoldAbilityFlash(applied.bonusCoins)
+        schedule(() => setGoldAbilityFlash(null), 900)
+      }
     }
 
     schedule(() => dispatch({ type: 'CLEAR_STAGE_UP_FLASH' }), 450)
@@ -401,15 +460,13 @@ export function GameScreen({
     }
 
     const living = current.activeTargets.filter((t) => t.state !== 'destroyed')
-    if (!canSpawnTarget(living.length, config.maxActiveTargets)) {
+    const maxActive = getMaxActiveTargetsForStage(config, current.stage)
+    if (!canSpawnTarget(living.length, maxActive)) {
       return
     }
 
-    const problem = selectTypingProblem({
-      difficulty: current.difficulty,
-      config,
-      lastProblemId: current.lastProblemId,
-    })
+    const activeProblemIds = new Set(living.map((t) => t.problemId))
+    const problem = problemBagRef.current!.next(activeProblemIds)
     const target = createTarget({
       problem,
       speed: getFallSpeed(config, current.stage),
@@ -616,16 +673,9 @@ export function GameScreen({
           shouldAdvanceStage: shouldAdvance,
         })
 
+        // 演出は独立。入力対象からは即除外済み（DESTROY で activeTargets から削除）
         targetsRef.current.delete(target.id)
-
-        const sessionAtDestroy = sessionIdRef.current
-        schedule(() => {
-          if (sessionIdRef.current !== sessionAtDestroy) {
-            return
-          }
-          elementRefs.current.delete(target.id)
-          dispatch({ type: 'REMOVE_TARGET', targetId: target.id })
-        }, gameConfig.destroyRemoveDelayMs)
+        elementRefs.current.delete(target.id)
         return
       }
 
@@ -667,6 +717,25 @@ export function GameScreen({
     state.typedCount,
   ])
 
+  const hudRemainingMs = useMemo(() => {
+    return computeRemainingMs(
+      {
+        gameStartedAtMs: state.gameStartedAtMs,
+        pausedTotalMs: state.pausedTotalMs,
+        pausedAtMs: state.pausedAtMs,
+      },
+      state.status === 'paused' ? (state.pausedAtMs ?? hudNowMs) : hudNowMs,
+      config.timeLimitSeconds,
+    )
+  }, [
+    config.timeLimitSeconds,
+    hudNowMs,
+    state.gameStartedAtMs,
+    state.pausedAtMs,
+    state.pausedTotalMs,
+    state.status,
+  ])
+
   useKeyboardInput({
     enabled: state.status === 'playing',
     onChar: handleChar,
@@ -691,22 +760,31 @@ export function GameScreen({
   }, [onRetry])
 
   return (
-    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-2 py-4 sm:px-3 sm:py-6 md:px-4">
+    <main className="flex min-h-[100vh] min-h-[100dvh] flex-col items-center overflow-x-hidden px-1 py-1 sm:px-2 sm:py-2">
       <GameArea damaged={damaged && !reducedMotion} onReady={handleAreaReady}>
         <GameHud
           score={state.score}
           combo={state.combo}
           stage={state.stage}
-          difficultyLabel={config.displayName}
           showStageUp={state.showStageUpFlash && !reducedMotion}
-          elapsedLabel={formatElapsedTime(hudStats.elapsedMs)}
+          remainingLabel={formatRemainingTime(hudRemainingMs)}
+          remainingUrgent={hudRemainingMs <= 10_000}
           wpm={hudStats.wpm}
-          accuracy={hudStats.accuracy}
-          abilityLabel={playCharacter.ability.name}
+          coins={coins}
+          coinGainFlash={coinGainFlash}
           showScoreAbilityHint={showScoreAbilityHint}
-          onPause={state.status === 'playing' ? pauseGame : undefined}
+          onPause={state.status === 'playing' ? () => pauseGame(false) : undefined}
         />
         <DefenseGauge defense={state.defense} maxDefense={gameConfig.maxHealth} />
+
+        {goldAbilityFlash !== null && goldAbilityFlash > 0 && (
+          <p
+            className="pointer-events-none absolute right-2 top-[11.5rem] z-40 text-xs font-bold text-[var(--color-accent-yellow)] sm:right-3 sm:top-36 md:right-4"
+            role="status"
+          >
+            黄金の褒賞 +{goldAbilityFlash}コイン
+          </p>
+        )}
 
         {state.activeTargets.map((target) => (
           <FallingTarget
@@ -753,14 +831,6 @@ export function GameScreen({
           </div>
         )}
 
-        {stageCoinPopup && (
-          <StageClearCoinPopup
-            stage={stageCoinPopup.stage}
-            coins={stageCoinPopup.coins}
-            abilityBonusCoins={stageCoinPopup.abilityBonusCoins}
-          />
-        )}
-
         {config.showBeginnerGuide && state.destroyedTargets === 0 && (
           <p className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[90%] -translate-x-1/2 text-center text-sm text-[var(--color-text-soft)] md:bottom-32">
             落下する日本語をローマ字入力して手裏剣を撃ち落とせ！
@@ -772,6 +842,7 @@ export function GameScreen({
             playCharacter={playCharacter}
             volume={volume}
             muted={muted}
+            confirmExit={pausedFromBrowserBack}
             onResume={resumeGame}
             onRetry={handleRetryFromPause}
             onTitle={handleAbandon}

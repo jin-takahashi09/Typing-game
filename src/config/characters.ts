@@ -118,7 +118,7 @@ export const characters: readonly CharacterDefinition[] = [
     ability: {
       type: 'damageReduction',
       name: '蒼影の守り',
-      description: '防衛壁が受けるダメージを20%軽減する。',
+      description: 'HPが受けるダメージを20%軽減する。',
       value: 0.2,
     },
     visual: {

@@ -67,7 +67,7 @@ async function runChecks() {
     await page.locator('input[type="range"]').fill('40')
     await page.getByLabel('ミュート').check()
     await page.getByText('軽減', { exact: true }).click()
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
 
     await page.reload({ waitUntil: 'domcontentloaded' })
     const stored = await page.evaluate((key) => {
@@ -92,7 +92,7 @@ async function runChecks() {
     } else {
       fail('nav: title -> howto', howto.slice(0, 200))
     }
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
 
     await startMaster(page)
     await page.waitForSelector('[data-target-id]', { timeout: 8000 })
@@ -177,7 +177,7 @@ async function runChecks() {
       fail('visibility: no auto resume', 'auto resumed')
     }
 
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
     await startMaster(page)
     await page.getByRole('button', { name: '一時停止' }).click()
     await page.getByRole('button', { name: '最初からやり直す' }).click()

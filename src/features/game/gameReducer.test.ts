@@ -112,7 +112,7 @@ describe('gameReducer', () => {
     expect(state.score).toBe(100)
     expect(state.combo).toBe(1)
     expect(state.stage).toBe(2)
-    expect(state.activeTargets[0]?.state).toBe('destroyed')
+    expect(state.activeTargets).toEqual([])
   })
 
   it('applies bottom damage, clamps defense at 0, and ends the game', () => {
@@ -130,6 +130,7 @@ describe('gameReducer', () => {
     })
     expect(state.defense).toBe(0)
     expect(state.status).toBe('gameover')
+    expect(state.endReason).toBe('defense')
     expect(state.activeTargets).toEqual([])
     expect(state.combo).toBe(0)
   })

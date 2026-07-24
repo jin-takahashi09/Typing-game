@@ -47,6 +47,10 @@ export interface PlayRecord {
   characterId: string
   abilityBonusScore?: number
   abilityBonusCoins?: number
+  /** 終了理由（旧データには無い） */
+  endReason?: 'defense' | 'timeout'
+  /** そのプレイの制限時間秒（旧データには無い） */
+  timeLimitSeconds?: number
 }
 
 export interface PlayComparison {

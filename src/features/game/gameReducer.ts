@@ -27,6 +27,7 @@ export function createInitialGameState(
     pausedAtMs: null,
     showMissFeedback: false,
     showStageUpFlash: false,
+    endReason: null,
   }
 }
 
@@ -99,6 +100,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       const nextDefense = clampDefense(state.defense + action.heal)
       const nextScore = state.score + action.scoreGain
 
+      // 撃破直後に入力対象から外す（演出完了待ちで残さない）
       return {
         ...state,
         score: nextScore,
@@ -109,17 +111,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         lockedTargetId: null,
         showStageUpFlash: action.shouldAdvanceStage,
         stage: action.shouldAdvanceStage ? state.stage + 1 : state.stage,
-        activeTargets: mapTarget(state.activeTargets, action.targetId, (item) => ({
-          ...item,
-          state: 'destroyed',
-          typedLength: item.displayRomaji.length,
-          matchState: {
-            ...item.matchState,
-            confirmedLength: item.displayRomaji.length,
-            isComplete: true,
-            activePaths: [],
-          },
-        })),
+        activeTargets: state.activeTargets.filter(
+          (target) => target.id !== action.targetId,
+        ),
       }
     }
 
@@ -151,6 +145,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
           ...nextState,
           defense: 0,
           status: 'gameover',
+          endReason: 'defense',
         }
       }
 
@@ -164,11 +159,15 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
     case 'END_GAME':
+      if (state.status === 'gameover') {
+        return state
+      }
       return {
         ...state,
         status: 'gameover',
         lockedTargetId: null,
         pausedAtMs: null,
+        endReason: action.reason,
       }
 
     case 'PAUSE_GAME': {

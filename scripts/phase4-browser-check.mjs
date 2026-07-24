@@ -125,7 +125,7 @@ async function runChecks() {
     }
 
     const playsBeforeSecond = storageAfterReload?.aggregates?.totalPlays ?? 0
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
     await startDifficulty(page, '忍頭')
     await waitForGameOver(page, 120)
 

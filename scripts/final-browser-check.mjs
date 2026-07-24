@@ -155,7 +155,7 @@ async function runChecks() {
     } else {
       fail('nav: title -> settings', 'missing volume')
     }
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
 
     await page.getByRole('button', { name: '遊び方' }).click()
     if ((await page.locator('body').innerText()).includes('ローマ字')) {
@@ -163,7 +163,7 @@ async function runChecks() {
     } else {
       fail('nav: title -> howto', 'missing howto')
     }
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
 
     await page.getByRole('button', { name: 'プレイ記録' }).click()
     if ((await page.locator('body').innerText()).includes('プレイ記録')) {
@@ -171,7 +171,7 @@ async function runChecks() {
     } else {
       fail('nav: title -> records', 'missing records')
     }
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
 
     // --- Difficulty + typing destroy ---
     await startDifficulty(page, '修行生')
@@ -226,7 +226,7 @@ async function runChecks() {
     }
 
     await page.getByRole('button', { name: '一時停止' }).click()
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
 
     // --- Game over + save (master for speed) ---
     await startDifficulty(page, '忍頭')
@@ -313,7 +313,7 @@ async function runChecks() {
       fail('clear: records gone, settings kept', JSON.stringify(afterClear))
     }
 
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
     await page.reload({ waitUntil: 'domcontentloaded' })
     const afterReload = await page.evaluate((key) => {
       const raw = localStorage.getItem(key)
@@ -334,7 +334,7 @@ async function runChecks() {
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const titleOk = await page.getByRole('button', { name: '修行を始める' }).isVisible()
     await page.getByRole('button', { name: '設定' }).click()
-    const settingsOk = await page.getByRole('button', { name: 'タイトルへ戻る' }).isVisible()
+    const settingsOk = await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).isVisible()
     const scrollX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)
     if (titleOk && settingsOk && !scrollX) {
       pass('mobile: 320px main actions usable')

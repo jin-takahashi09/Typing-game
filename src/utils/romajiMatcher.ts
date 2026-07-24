@@ -107,41 +107,28 @@ export function processRomajiInput(
     const node = nodes[path.moraIndex]!
     const nextPartial = path.partial + lower
 
-    if (isValidPrefix(node.options, nextPartial)) {
-      if (isCompleteMora(node.options, nextPartial)) {
-        nextPaths.push({
-          moraIndex: path.moraIndex + 1,
-          partial: '',
-        })
-      } else {
-        nextPaths.push({
-          moraIndex: path.moraIndex,
-          partial: nextPartial,
-        })
-      }
+    if (!isValidPrefix(node.options, nextPartial)) {
+      continue
     }
 
-    // 長音は直前母音でも入力できるが、代表ローマ字では省略されることがある
-    // （らーめん → ramen）。未入力の「ー」は次モーラへスキップを許可する。
-    if (
-      node.kana === 'ー' &&
-      path.partial === '' &&
-      path.moraIndex + 1 < nodes.length
-    ) {
-      const nextNode = nodes[path.moraIndex + 1]!
-      if (isValidPrefix(nextNode.options, lower)) {
-        if (isCompleteMora(nextNode.options, lower)) {
-          nextPaths.push({
-            moraIndex: path.moraIndex + 2,
-            partial: '',
-          })
-        } else {
-          nextPaths.push({
-            moraIndex: path.moraIndex + 1,
-            partial: lower,
-          })
-        }
-      }
+    const completes = isCompleteMora(node.options, nextPartial)
+    const canContinue = node.options.some(
+      (option) =>
+        option.startsWith(nextPartial) && option.length > nextPartial.length,
+    )
+
+    // 「ん」の n / nn のように、完成と継続が同時に成立する分岐を両方残す
+    if (completes) {
+      nextPaths.push({
+        moraIndex: path.moraIndex + 1,
+        partial: '',
+      })
+    }
+    if (canContinue) {
+      nextPaths.push({
+        moraIndex: path.moraIndex,
+        partial: nextPartial,
+      })
     }
   }
 
@@ -155,14 +142,19 @@ export function processRomajiInput(
   }
 
   const activePaths = dedupePaths(nextPaths)
-  const isComplete = activePaths.every((path) => path.moraIndex >= nodes.length)
+  const finishedPaths = activePaths.filter(
+    (path) => path.moraIndex >= nodes.length,
+  )
+  // いずれかの候補が語末に達したら完了（んの n/nn 分岐で未完了パスが残ってもよい）
+  const isComplete = finishedPaths.length > 0
+  const resolvedPaths = isComplete ? finishedPaths : activePaths
   const nextConfirmedLength = isComplete
     ? problem.romajiPatterns[0]?.length ?? 0
-    : computeConfirmedLength(nodes, activePaths)
+    : computeConfirmedLength(nodes, resolvedPaths)
 
   const nextState: RomajiMatchState = {
     confirmedLength: nextConfirmedLength,
-    activePaths,
+    activePaths: resolvedPaths,
     isComplete,
   }
 

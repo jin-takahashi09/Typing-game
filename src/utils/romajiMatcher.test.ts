@@ -106,13 +106,79 @@ describe('romajiMatcher', () => {
     expect(typeWord(problem, 'gakkou').ok).toBe(true)
   })
 
-  it('accepts basic n input', () => {
+  it('accepts sushi and susi for すし, rejects trailing junk', () => {
     const problem = makeProblem({
-      displayText: 'せんせい',
-      reading: 'せんせい',
-      romajiPatterns: ['sensei'],
+      id: 'sushi-test',
+      displayText: 'すし',
+      reading: 'すし',
+      romajiPatterns: ['sushi'],
     })
-    expect(typeWord(problem, 'sensei').ok).toBe(true)
+    expect(typeWord(problem, 'sushi').ok && typeWord(problem, 'sushi').state.isComplete).toBe(
+      true,
+    )
+    expect(typeWord(problem, 'susi').ok && typeWord(problem, 'susi').state.isComplete).toBe(true)
+    const extra = typeWord(problem, 'sushii')
+    expect(extra.ok && extra.state.isComplete).toBe(false)
+  })
+
+  it('accepts kansou and kannsou for 感想, rejects kannsoud', () => {
+    const problem = makeProblem({
+      id: 'kansou-test',
+      displayText: '感想',
+      reading: 'かんそう',
+      romajiPatterns: ['kansou'],
+    })
+    const a = typeWord(problem, 'kansou')
+    expect(a.ok && a.state.isComplete).toBe(true)
+    const b = typeWord(problem, 'kannsou')
+    expect(b.ok && b.state.isComplete).toBe(true)
+    const bad = typeWord(problem, 'kannsoud')
+    expect(bad.ok && bad.state.isComplete).toBe(false)
+  })
+
+  it('keeps branching paths for n / nn before consonants', () => {
+    const problem = makeProblem({
+      id: 'annai-test',
+      displayText: '案内',
+      reading: 'あんない',
+      romajiPatterns: ['annai'],
+    })
+    expect(typeWord(problem, 'annai').ok && typeWord(problem, 'annai').state.isComplete).toBe(
+      true,
+    )
+    expect(typeWord(problem, 'annnai').ok && typeWord(problem, 'annnai').state.isComplete).toBe(
+      true,
+    )
+  })
+
+  it('accepts fu and hu, ji and zi', () => {
+    const fu = makeProblem({
+      displayText: 'ふね',
+      reading: 'ふね',
+      romajiPatterns: ['fune'],
+    })
+    expect(typeWord(fu, 'fune').ok).toBe(true)
+    expect(typeWord(fu, 'hune').ok).toBe(true)
+
+    const ji = makeProblem({
+      displayText: 'じかん',
+      reading: 'じかん',
+      romajiPatterns: ['jikan'],
+    })
+    expect(typeWord(ji, 'jikan').ok).toBe(true)
+    expect(typeWord(ji, 'zikan').ok).toBe(true)
+  })
+
+  it('accepts english words unchanged', () => {
+    const problem = makeProblem({
+      id: 'eng-test',
+      displayText: 'コード',
+      reading: 'こーど',
+      romajiPatterns: ['ko-do'],
+    })
+    expect(typeWord(problem, 'ko-do').ok && typeWord(problem, 'ko-do').state.isComplete).toBe(
+      true,
+    )
   })
 
   it('rejects invalid characters and keeps state', () => {
@@ -144,39 +210,38 @@ describe('romajiMatcher', () => {
     expect(last.isComplete).toBe(true)
   })
 
-  it('accepts long vowel mark as previous vowel', () => {
+  it('accepts long vowel mark as hyphen only', () => {
     const ramen = makeProblem({
       id: 'choon-ramen',
       displayText: 'らーめん',
       reading: 'らーめん',
-      romajiPatterns: ['ramen'],
+      romajiPatterns: ['ra-men'],
     })
     const geemu = makeProblem({
       id: 'choon-geemu',
       displayText: 'ゲーム',
       reading: 'げーむ',
-      romajiPatterns: ['geemu'],
+      romajiPatterns: ['ge-mu'],
     })
     const koohii = makeProblem({
       id: 'choon-koohii',
       displayText: 'コーヒー',
       reading: 'こーひー',
-      romajiPatterns: ['koohii'],
+      romajiPatterns: ['ko-hi-'],
     })
 
-    const ramenTyped = typeWord(ramen, 'ramen')
+    const ramenTyped = typeWord(ramen, 'ra-men')
     expect(ramenTyped.ok).toBe(true)
     expect(ramenTyped.state.isComplete).toBe(true)
 
-    const raamenTyped = typeWord(ramen, 'raamen')
-    expect(raamenTyped.ok).toBe(true)
-    expect(raamenTyped.state.isComplete).toBe(true)
+    const ramenSkip = typeWord(ramen, 'ramen')
+    expect(ramenSkip.ok && ramenSkip.state.isComplete).toBe(false)
 
-    const geemuTyped = typeWord(geemu, 'geemu')
+    const geemuTyped = typeWord(geemu, 'ge-mu')
     expect(geemuTyped.ok).toBe(true)
     expect(geemuTyped.state.isComplete).toBe(true)
 
-    const koohiiTyped = typeWord(koohii, 'koohii')
+    const koohiiTyped = typeWord(koohii, 'ko-hi-')
     expect(koohiiTyped.ok).toBe(true)
     expect(koohiiTyped.state.isComplete).toBe(true)
   })

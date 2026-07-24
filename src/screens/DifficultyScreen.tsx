@@ -4,6 +4,7 @@ import {
   difficultyOrder,
 } from '../config/difficultyConfig'
 import { GameButton } from '../components/common/GameButton'
+import { BackButton } from '../components/common/BackButton'
 import { useFocusOnMount } from '../hooks/useFocusTrap'
 import type { DifficultyId } from '../types/app'
 
@@ -46,8 +47,9 @@ export function DifficultyScreen({
   )
 
   return (
-    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
+    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6">
       <section className="panel-glow w-full max-w-4xl rounded-[var(--radius-xl)] bg-[var(--color-bg-panel)] px-3 py-6 sm:px-4 sm:py-8 md:px-8">
+        <BackButton onClick={onBack} />
         <header className="mb-6 text-center sm:mb-8">
           <h1
             ref={headingRef}
@@ -96,32 +98,12 @@ export function DifficultyScreen({
                 <p className="mb-4 text-sm leading-relaxed text-[var(--color-text-soft)]">
                   {config.description}
                 </p>
-                <dl className="grid grid-cols-2 gap-x-2 gap-y-2 text-xs text-[var(--color-text-muted)]">
-                  <div>
-                    <dt className="uppercase tracking-wide">落下</dt>
-                    <dd className="font-display text-[var(--color-accent-yellow)]">
-                      {config.fallSpeed.toFixed(1)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="uppercase tracking-wide">同時数</dt>
-                    <dd className="font-display text-[var(--color-accent-yellow)]">
-                      {config.maxActiveTargets}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="uppercase tracking-wide">出現</dt>
-                    <dd className="font-display text-[var(--color-accent-yellow)]">
-                      {config.spawnIntervalMs}ms
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="uppercase tracking-wide">文字数</dt>
-                    <dd className="font-display text-[var(--color-accent-yellow)]">
-                      {config.minChars}–{config.maxChars}
-                    </dd>
-                  </div>
-                </dl>
+                <p
+                  className="text-sm font-bold text-[var(--color-accent-yellow)]"
+                  data-testid={`time-limit-${id}`}
+                >
+                  制限時間：{config.timeLimitSeconds}秒
+                </p>
                 {isSelected && (
                   <p className="mt-4 font-display text-xs text-[var(--color-accent-yellow)]">
                     選択中
@@ -133,9 +115,6 @@ export function DifficultyScreen({
         </div>
 
         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center">
-          <GameButton variant="ghost" onClick={onBack}>
-            タイトルへ戻る
-          </GameButton>
           <GameButton
             variant="secondary"
             size="lg"

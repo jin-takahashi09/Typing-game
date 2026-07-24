@@ -102,27 +102,9 @@ function consonantOf(option: string): string | null {
   return null
 }
 
-function trailingVowel(option: string): string | null {
-  if (option.length === 0) {
-    return null
-  }
-  const last = option[option.length - 1]!
-  if ('aiueo'.includes(last)) {
-    return last
-  }
-  return null
-}
-
-/** 長音「ー」は直前モーラの末尾母音として扱う（例: らー → ra + a） */
-function getChoonOptions(previousOptions: string[]): string[] {
-  const vowels = new Set<string>()
-  for (const option of previousOptions) {
-    const vowel = trailingVowel(option)
-    if (vowel) {
-      vowels.add(vowel)
-    }
-  }
-  return [...vowels]
+/** 長音「ー」は半角ハイフン「-」で入力する（例: らーめん → ra-men） */
+function getChoonOptions(): string[] {
+  return ['-']
 }
 
 function getBaseOptions(kana: string): string[] {
@@ -150,13 +132,15 @@ function getSmallTsuOptions(nextOptions: string[]): string[] {
 }
 
 function getNOptions(nextKana?: string): string[] {
-  if (!nextKana || VOWEL_KANA.has(nextKana)) {
+  // 母音・ヤ行の前は nn が必要になりやすいが、子音前でも nn を許容する（kansou / kannsou）
+  if (!nextKana) {
     return ['n', 'nn']
   }
-  if (nextKana === 'や' || nextKana === 'ゆ' || nextKana === 'よ') {
-    return ['n']
+  if (VOWEL_KANA.has(nextKana) || nextKana === 'や' || nextKana === 'ゆ' || nextKana === 'よ') {
+    return ['nn', 'n']
   }
-  return ['n']
+  // な行など子音始まりでも n / nn の分岐を許可（案内: annai / annnai）
+  return ['n', 'nn']
 }
 
 /** モーラ列からローマ字候補を付与したノード列を構築 */
@@ -182,8 +166,7 @@ export function buildMoraNodes(
           : []
       node.options = getSmallTsuOptions(nextOptions)
     } else if (node.kana === 'ー') {
-      const previousOptions = index > 0 ? nodes[index - 1]!.options : []
-      node.options = getChoonOptions(previousOptions)
+      node.options = getChoonOptions()
     } else if (node.kana === 'ん') {
       node.options = getNOptions(nextKana)
     } else {
@@ -208,13 +191,6 @@ function alignDisplaySlices(nodes: MoraNode[], displayRomaji: string): void {
         matched = true
         break
       }
-    }
-
-    // 代表ローマ字で長音を省略している場合（らーめん → ramen）は幅0
-    if (!matched && node.kana === 'ー') {
-      node.displayStart = position
-      node.displayEnd = position
-      matched = true
     }
 
     if (!matched && node.options.length > 0) {

@@ -28,6 +28,11 @@ describe('typingProblems integrity', () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
+  it('has unique displayText across the whole bank', () => {
+    const texts = typingProblems.map((problem) => problem.displayText)
+    expect(new Set(texts).size).toBe(texts.length)
+  })
+
   it('rejects empty fields and english-only display', () => {
     for (const problem of typingProblems) {
       expect(problem.displayText.trim().length).toBeGreaterThan(0)
@@ -46,10 +51,22 @@ describe('typingProblems integrity', () => {
     }
   })
 
-  it('keeps at least 15 problems per difficulty', () => {
-    expect(getProblemsForDifficulty('trainee').length).toBeGreaterThanOrEqual(15)
-    expect(getProblemsForDifficulty('ninja').length).toBeGreaterThanOrEqual(15)
-    expect(getProblemsForDifficulty('master').length).toBeGreaterThanOrEqual(15)
+  it('keeps at least 200 problems per difficulty and 600 total', () => {
+    const trainee = getProblemsForDifficulty('trainee')
+    const ninja = getProblemsForDifficulty('ninja')
+    const master = getProblemsForDifficulty('master')
+    expect(trainee.length).toBeGreaterThanOrEqual(200)
+    expect(ninja.length).toBeGreaterThanOrEqual(200)
+    expect(master.length).toBeGreaterThanOrEqual(200)
+    expect(typingProblems.length).toBeGreaterThanOrEqual(600)
+  })
+
+  it('assigns the correct difficulty field', () => {
+    for (const difficulty of ['trainee', 'ninja', 'master'] as const) {
+      for (const problem of getProblemsForDifficulty(difficulty)) {
+        expect(problem.difficulty).toBe(difficulty)
+      }
+    }
   })
 
   it('has no exact duplicates within a difficulty', () => {
@@ -89,16 +106,29 @@ describe('typingProblems integrity', () => {
     }
   })
 
-  it('completes readings that include choon marks', () => {
+  it('requires hyphen for choon readings and rejects omit-style ramen', () => {
+    const ramen = typingProblems.find(
+      (problem) =>
+        problem.displayText === 'ラーメン' || problem.reading === 'らーめん',
+    )
+    expect(ramen).toBeTruthy()
+    const withHyphen = typeWord(ramen!, 'ra-men')
+    expect(withHyphen.ok && withHyphen.state.isComplete).toBe(true)
+    const withoutHyphen = typeWord(ramen!, 'ramen')
+    expect(withoutHyphen.ok && withoutHyphen.state.isComplete).toBe(false)
+
     const withChoon = typingProblems.filter((problem) =>
       problem.reading.includes('ー'),
     )
     expect(withChoon.length).toBeGreaterThan(0)
     for (const problem of withChoon) {
       const representative = problem.romajiPatterns[0]!.toLowerCase()
+      expect(
+        representative.includes('-'),
+        `${problem.id} should use hyphen for choon`,
+      ).toBe(true)
       const typed = typeWord(problem, representative)
       expect(typed.ok && typed.state.isComplete, problem.id).toBe(true)
-      expect(representative.length).toBeGreaterThan(0)
     }
   })
 })

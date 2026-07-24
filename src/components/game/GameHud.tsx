@@ -2,13 +2,13 @@ interface GameHudProps {
   score: number
   combo: number
   stage: number
-  difficultyLabel: string
-  abilityLabel?: string
   showStageUp: boolean
   showScoreAbilityHint?: boolean
-  elapsedLabel: string
+  remainingLabel: string
+  remainingUrgent?: boolean
   wpm: number
-  accuracy: number
+  coins: number
+  coinGainFlash?: number | null
   onPause?: () => void
 }
 
@@ -16,18 +16,18 @@ export function GameHud({
   score,
   combo,
   stage,
-  difficultyLabel,
-  abilityLabel,
   showStageUp,
   showScoreAbilityHint = false,
-  elapsedLabel,
+  remainingLabel,
+  remainingUrgent = false,
   wpm,
-  accuracy,
+  coins,
+  coinGainFlash = null,
   onPause,
 }: GameHudProps) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-start gap-1 p-2 sm:gap-2 sm:p-3 md:p-4">
-      <div className="flex min-w-0 flex-col gap-1 sm:gap-2">
+      <div className="flex min-w-0 flex-col gap-1 sm:gap-1.5">
         <div className="relative rounded border border-[var(--color-border-blue)] bg-black/50 px-2 py-1 sm:px-3 sm:py-2">
           <span className="mr-1 text-[0.65rem] font-bold uppercase tracking-wider text-[var(--color-text-soft)] sm:mr-2 sm:text-xs">
             Score
@@ -55,10 +55,8 @@ export function GameHud({
             Combo x{combo}
           </span>
         </div>
-        <div className="rounded border border-[var(--color-border-blue)] bg-black/50 px-1.5 py-1 text-[0.6rem] leading-tight text-[var(--color-text-soft)] sm:px-2 sm:text-xs">
-          <span className="mr-1.5 sm:mr-2">{elapsedLabel}</span>
-          <span className="mr-1.5 sm:mr-2">WPM {wpm.toFixed(1)}</span>
-          <span>ACC {accuracy.toFixed(1)}%</span>
+        <div className="rounded border border-[var(--color-border-blue)] bg-black/50 px-1.5 py-1 text-[0.65rem] text-[var(--color-text-soft)] sm:px-2 sm:text-xs">
+          WPM {wpm.toFixed(1)}
         </div>
       </div>
 
@@ -74,6 +72,18 @@ export function GameHud({
             STAGE {stage}
           </span>
         </div>
+        <div
+          className={[
+            'rounded border px-2 py-1 text-[0.65rem] font-bold sm:px-3 sm:text-xs',
+            remainingUrgent
+              ? 'border-[var(--color-border-red)] bg-red-950/50 text-[var(--color-accent-red)]'
+              : 'border-[var(--color-border-yellow)] bg-black/50 text-[var(--color-accent-yellow)]',
+          ].join(' ')}
+          data-testid="remaining-time"
+          aria-live="polite"
+        >
+          残り {remainingLabel}
+        </div>
         {onPause && (
           <button
             type="button"
@@ -87,21 +97,26 @@ export function GameHud({
       </div>
 
       <div className="min-w-0 justify-self-end space-y-1 text-right">
-        <div className="rounded border border-[var(--color-border-blue)] bg-black/50 px-2 py-1 sm:px-3 sm:py-2">
+        <div
+          className="relative rounded border border-[var(--color-border-yellow)] bg-black/50 px-2 py-1 sm:px-3 sm:py-2"
+          data-testid="owned-coins"
+        >
           <span className="block text-[0.55rem] font-bold uppercase tracking-wider text-[var(--color-text-muted)] sm:text-[0.65rem]">
-            Diff
+            所持コイン
           </span>
-          <span className="font-display text-[0.7rem] text-[var(--color-text-soft)] sm:text-sm">
-            {difficultyLabel}
+          <span className="font-display text-sm text-[var(--color-accent-yellow)] sm:text-base">
+            {coins}
           </span>
-        </div>
-        {abilityLabel && (
-          <div className="rounded border border-[var(--color-border-yellow)] bg-black/50 px-2 py-1">
-            <span className="block text-[0.55rem] text-[var(--color-accent-yellow)] sm:text-[0.65rem]">
-              {abilityLabel}
+          {coinGainFlash !== null && coinGainFlash > 0 && (
+            <span
+              className="ability-float-text ability-float-text--fire absolute -bottom-5 right-0 text-xs font-bold text-[var(--color-accent-yellow)]"
+              role="status"
+              data-testid="coin-gain-flash"
+            >
+              +{coinGainFlash}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

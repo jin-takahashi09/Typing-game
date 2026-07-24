@@ -33,6 +33,8 @@ export function createPlayRecordFromResult(
     ...(result.abilityBonusCoins > 0
       ? { abilityBonusCoins: result.abilityBonusCoins }
       : {}),
+    endReason: result.endReason,
+    timeLimitSeconds: result.timeLimitSeconds,
   }
 }
 

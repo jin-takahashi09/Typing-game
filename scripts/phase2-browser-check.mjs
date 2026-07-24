@@ -35,6 +35,7 @@ async function getTargets(page) {
   return page.evaluate(() => {
     return Array.from(document.querySelectorAll('[data-target-id]')).map((el) => {
       const input = el.querySelector('[aria-label]')
+      let y = 0
       const datasetY = el.dataset.fallY
       if (datasetY) {
         y = Number(datasetY)
@@ -48,9 +49,15 @@ async function getTargets(page) {
           if (parts && parts.length >= 6) y = parts[5]
         }
       }
+      const label = input?.getAttribute('aria-label') ?? ''
+      const tokens = label.trim().split(/\s+/)
+      const romaji =
+        [...tokens].reverse().find((token) => /^[a-zA-Z-]+$/.test(token)) ??
+        tokens[tokens.length - 1] ??
+        ''
       return {
         id: el.getAttribute('data-target-id'),
-        inputText: input?.getAttribute('aria-label') ?? '',
+        inputText: romaji,
         y,
         locked: el.querySelector('.char-current') !== null,
         classes: el.querySelector('.target-word')?.className ?? '',
@@ -307,7 +314,7 @@ async function runChecks() {
       }
 
       if ((await page.locator('body').innerText()).includes('DEFENSE FAILED')) {
-        await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+        await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
         if ((await page.locator('body').innerText()).includes('Shinobi Keys')) pass('result: back to title')
         else fail('result: back to title', 'not on title')
       } else {

@@ -128,6 +128,16 @@ function normalizePlayRecord(raw: unknown): PlayRecord | null {
       ? undefined
       : toNonNegativeNumber(raw.abilityBonusCoins)
 
+  const endReasonRaw = raw.endReason
+  const endReason =
+    endReasonRaw === 'defense' || endReasonRaw === 'timeout'
+      ? endReasonRaw
+      : undefined
+  const timeLimitSeconds =
+    raw.timeLimitSeconds === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.timeLimitSeconds)
+
   return {
     id,
     playedAt,
@@ -145,6 +155,8 @@ function normalizePlayRecord(raw: unknown): PlayRecord | null {
     characterId: characterIdRaw,
     ...(abilityBonusScore !== undefined ? { abilityBonusScore } : {}),
     ...(abilityBonusCoins !== undefined ? { abilityBonusCoins } : {}),
+    ...(endReason !== undefined ? { endReason } : {}),
+    ...(timeLimitSeconds !== undefined ? { timeLimitSeconds } : {}),
   }
 }
 

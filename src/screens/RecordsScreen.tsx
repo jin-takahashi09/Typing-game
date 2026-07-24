@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { GameButton } from '../components/common/GameButton'
+import { BackButton } from '../components/common/BackButton'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { BestScoreCard } from '../components/records/BestScoreCard'
 import { RecentPlaysList } from '../components/records/RecentPlaysList'
@@ -30,8 +31,9 @@ export function RecordsScreen({
     Object.values(data.bestByDifficulty).some((best) => best !== null)
 
   return (
-    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
+    <main className="flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6">
       <section className="panel-glow w-full max-w-2xl rounded-[var(--radius-xl)] bg-black/90 px-4 py-6 sm:px-6 sm:py-8 md:px-10">
+        <BackButton onClick={onBack} />
         <h1
           ref={headingRef}
           tabIndex={-1}
@@ -79,9 +81,6 @@ export function RecordsScreen({
               記録を削除
             </GameButton>
           )}
-          <GameButton variant="ghost" onClick={onBack}>
-            タイトルへ戻る
-          </GameButton>
         </div>
       </section>
 

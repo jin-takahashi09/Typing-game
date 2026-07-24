@@ -5,6 +5,7 @@ import type { RomajiMatchState } from './typing'
 export type GameStatus = 'ready' | 'playing' | 'paused' | 'gameover'
 export type TargetState = 'falling' | 'locked' | 'destroyed'
 export type NinjaAnimationState = 'idle' | 'attack' | 'damage'
+export type GameEndReason = 'defense' | 'timeout'
 
 export interface GameTarget {
   id: string
@@ -43,6 +44,8 @@ export interface GameState {
   pausedAtMs: number | null
   showMissFeedback: boolean
   showStageUpFlash: boolean
+  /** 終了理由。未終了時は null */
+  endReason: GameEndReason | null
 }
 
 export interface GameResultSummary {
@@ -60,6 +63,8 @@ export interface GameResultSummary {
   characterId: string
   abilityBonusScore: number
   abilityBonusCoins: number
+  endReason: GameEndReason
+  timeLimitSeconds: number
 }
 
 export interface PlayCoinSummary {
@@ -99,7 +104,7 @@ export type GameAction =
   | { type: 'REMOVE_TARGET'; targetId: string }
   | { type: 'TARGET_REACHED_BOTTOM'; targetId: string; damage: number }
   | { type: 'CLEAR_STAGE_UP_FLASH' }
-  | { type: 'END_GAME' }
+  | { type: 'END_GAME'; reason: GameEndReason }
   | { type: 'PAUSE_GAME'; atMs: number }
   | { type: 'RESUME_GAME'; atMs: number }
   | { type: 'RESET_GAME'; difficulty: DifficultyId; maxDefense: number; startedAtMs: number }

@@ -24,6 +24,8 @@ function makeSummary(overrides: Partial<GameResultSummary> = {}): GameResultSumm
     characterId: 'shinobi-default',
     abilityBonusScore: 0,
     abilityBonusCoins: 0,
+    endReason: 'defense',
+    timeLimitSeconds: 90,
     ...overrides,
   }
 }

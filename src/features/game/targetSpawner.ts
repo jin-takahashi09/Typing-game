@@ -1,4 +1,8 @@
-import type { DifficultyConfig } from '../../config/difficultyConfig'
+import {
+  getFallSpeedForStage,
+  getSpawnIntervalForStage,
+  type DifficultyConfig,
+} from '../../config/difficultyConfig'
 import { gameConfig } from '../../config/gameConfig'
 import type { TypingProblem } from '../../types/typing'
 import type { GameTarget } from '../../types/game'
@@ -16,13 +20,11 @@ export function getSpawnIntervalMs(
   config: DifficultyConfig,
   stage: number,
 ): number {
-  const reduced =
-    config.spawnIntervalMs - (stage - 1) * 120
-  return Math.max(config.minSpawnIntervalMs, reduced)
+  return getSpawnIntervalForStage(config, stage)
 }
 
 export function getFallSpeed(config: DifficultyConfig, stage: number): number {
-  return config.fallSpeed + (stage - 1) * config.fallSpeedPerStage
+  return getFallSpeedForStage(config, stage)
 }
 
 export interface CreateTargetParams {

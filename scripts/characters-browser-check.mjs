@@ -84,7 +84,7 @@ async function runChecks() {
         fail('shop: cannot buy without coins', 'buy still enabled')
       }
     }
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
 
     // Seed coins and owned state for purchase flow
     await page.evaluate((key) => {
@@ -152,7 +152,7 @@ async function runChecks() {
       fail('shop: select owned character', economy.selectedCharacterId)
     }
 
-    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
+    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
     await page.getByRole('button', { name: '修行を始める' }).click()
     await page.getByRole('radio', { name: /修行生/ }).click()
     await page.getByRole('button', { name: 'この難易度で開始' }).click()
@@ -177,8 +177,12 @@ async function runChecks() {
         await page.keyboard.type(romaji, { delay: 15 })
         await delay(350)
       }
-      const body = await page.locator('body').innerText()
-      if (body.includes('STAGE 1 CLEAR') && body.includes('+10 コイン')) {
+      const coinsNow = await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)).economy.coins,
+        STORAGE_KEY,
+      )
+      const flash = await page.getByTestId('coin-gain-flash').count()
+      if (coinsNow >= coinsBefore + 10 || flash > 0) {
         stageClearSeen = true
       }
     }
@@ -211,7 +215,7 @@ async function runChecks() {
       pass('game: no duplicate idle coin drip')
     }
 
-    await page.getByRole('button', { name: '一時停止' }).click()
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
 
     // Seed records + economy, then clear records and ensure economy remains

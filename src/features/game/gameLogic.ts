@@ -52,7 +52,7 @@ export function shouldAdvanceStage(
 }
 
 export function isTypingKey(key: string): boolean {
-  return /^[a-zA-Z]$/.test(key)
+  return /^[a-zA-Z-]$/.test(key)
 }
 
 function toTypingProblem(target: GameTarget): TypingProblem {

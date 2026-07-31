@@ -28,13 +28,28 @@ async function startDifficulty(page, label) {
   await page.waitForSelector('[aria-label="タイピングゲームエリア"]')
 }
 
-async function waitForGameOver(page, maxSeconds = 120) {
-  for (let i = 0; i < maxSeconds; i += 1) {
-    await delay(1000)
+async function waitForGameOver(page, maxHits = 25) {
+  await page.evaluate(() => {
+    window.__SHINOBI_KEYS_TEST__ = {
+      ...(window.__SHINOBI_KEYS_TEST__ ?? {}),
+      forceEndGame: true,
+    }
+  })
+  for (let i = 0; i < Math.max(8, Math.min(maxHits, 20)); i += 1) {
+    await delay(300)
     const text = await page.locator('body').innerText()
-    if (text.includes('DEFENSE FAILED')) {
+    if (
+      text.includes('TIME UP') ||
+      text.includes('同じ難易度でもう一度') ||
+      text.includes('DEFENSE FAILED')
+    ) {
       return text
     }
+    await page.evaluate(() => {
+      if (window.__SHINOBI_KEYS_TEST__) {
+        window.__SHINOBI_KEYS_TEST__.forceEndGame = true
+      }
+    })
   }
   return null
 }

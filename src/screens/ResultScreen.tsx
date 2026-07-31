@@ -37,17 +37,14 @@ export function ResultScreen({
           tabIndex={-1}
           className="font-display mb-4 text-2xl text-[var(--color-accent-red)] outline-none sm:mb-6 sm:text-3xl md:text-4xl"
         >
-          {summary.endReason === 'timeout' ? 'TIME UP' : 'DEFENSE FAILED'}
+          TIME UP
         </h1>
 
         <p
           className="mb-4 text-sm text-[var(--color-text-soft)]"
           data-testid="end-reason"
         >
-          終了理由：
-          {(summary.endReason ?? 'defense') === 'timeout'
-            ? '時間切れ'
-            : 'HPが0になった'}
+          終了理由：時間切れ
         </p>
 
         <div className="mb-4 flex flex-col items-center gap-2">
@@ -84,11 +81,11 @@ export function ResultScreen({
           aria-label="コイン獲得"
         >
           <p className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-            コイン
+            獲得コイン
           </p>
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between gap-3">
-              <dt className="text-[var(--color-text-soft)]">ステージクリア報酬</dt>
+              <dt className="text-[var(--color-text-soft)]">撃破ボーナス</dt>
               <dd className="font-display text-[var(--color-accent-yellow)]">
                 +{coinSummary.stageClearCoins}
               </dd>
@@ -101,7 +98,10 @@ export function ResultScreen({
             </div>
             <div className="flex justify-between gap-3 border-t border-[var(--color-border-blue)] pt-2">
               <dt className="text-white">今回の合計</dt>
-              <dd className="font-display text-[var(--color-accent-yellow)]">
+              <dd
+                className="font-display text-[var(--color-accent-yellow)]"
+                data-testid="result-total-coins"
+              >
                 +{coinSummary.totalEarned}
               </dd>
             </div>
@@ -115,73 +115,88 @@ export function ResultScreen({
         <div className="mb-8 rounded-[var(--radius-lg)] border-2 border-[var(--color-border-blue)] bg-slate-800/80 p-6 text-left shadow-2xl">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Final Score
+              スコア
             </div>
-            <div className="font-display text-right text-xl text-[var(--color-accent-yellow)]">
+            <div
+              className="font-display text-right text-xl text-[var(--color-accent-yellow)]"
+              data-testid="result-score"
+            >
               {summary.score}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Difficulty
+              難易度
             </div>
             <div className="font-display text-right text-xl text-[var(--color-text-soft)]">
               {config.displayName}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Stage
+              撃破数
             </div>
-            <div className="font-display text-right text-xl text-white">
-              {summary.stage}
-            </div>
-
-            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Words Defeated
-            </div>
-            <div className="font-display text-right text-xl text-white">
+            <div
+              className="font-display text-right text-xl text-white"
+              data-testid="result-destroyed"
+            >
               {summary.destroyedTargets}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Max Combo
+              成功数
+            </div>
+            <div
+              className="font-display text-right text-xl text-white"
+              data-testid="result-success"
+            >
+              {summary.destroyedTargets}
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              失敗数
+            </div>
+            <div
+              className="font-display text-right text-xl text-white"
+              data-testid="result-fail"
+            >
+              {summary.failedTargets}
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              成功率
+            </div>
+            <div
+              className="font-display text-right text-xl text-[var(--color-accent-yellow)]"
+              data-testid="result-success-rate"
+            >
+              {summary.successRate.toFixed(1)}%
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              最大コンボ
             </div>
             <div className="font-display text-right text-xl text-[var(--color-accent-red)]">
               {summary.maxCombo}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Play Time
+              プレイ時間
             </div>
             <div className="font-display text-right text-xl text-white">
               {formatElapsedTime(summary.elapsedMs)}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Typed Chars
+              入力文字数
             </div>
             <div className="font-display text-right text-xl text-white">
               {summary.typedChars}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Correct Chars
-            </div>
-            <div className="font-display text-right text-xl text-white">
-              {summary.correctChars}
-            </div>
-
-            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Miss Types
+              ミス入力
             </div>
             <div className="font-display text-right text-xl text-white">
               {summary.missCount}
-            </div>
-
-            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
-              Accuracy
-            </div>
-            <div className="font-display text-right text-xl text-[var(--color-accent-yellow)]">
-              {summary.accuracy.toFixed(1)}%
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
@@ -198,7 +213,7 @@ export function ResultScreen({
             同じ難易度でもう一度
           </GameButton>
           <GameButton variant="primary" onClick={onChangeDifficulty}>
-            難易度を変更
+            難易度を変える
           </GameButton>
           <GameButton variant="ghost" onClick={onTitle}>
             タイトルへ戻る

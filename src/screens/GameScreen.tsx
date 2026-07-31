@@ -6,9 +6,10 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { CSSProperties } from 'react'
 import {
   getDifficultyConfig,
-  getMaxActiveTargetsForStage,
+  getMaxActiveTargets,
 } from '../config/difficultyConfig'
 import { gameConfig } from '../config/gameConfig'
 import type { ActivePlayCharacter } from '../config/characters'
@@ -16,8 +17,10 @@ import { GameArea } from '../components/game/GameArea'
 import { GameHud } from '../components/game/GameHud'
 import { DefenseGauge } from '../components/game/DefenseGauge'
 import { NinjaPlayer } from '../components/game/NinjaPlayer'
-import { FallingTarget } from '../components/game/FallingTarget'
-import { SlashEffect } from '../components/game/SlashEffect'
+import { TrainingGroundBackground } from '../components/game/TrainingGroundBackground'
+import { EnemyProjectileView } from '../components/game/EnemyProjectileView'
+import { ProblemBanner } from '../components/game/ProblemBanner'
+import { AllyShurikenFx } from '../components/game/AllyShurikenFx'
 import { ComboDisplay } from '../components/game/ComboDisplay'
 import { PauseOverlay } from '../components/game/PauseOverlay'
 import { AbilityFloatText } from '../components/game/AbilityFloatText'
@@ -26,28 +29,26 @@ import {
   gameReducer,
 } from '../features/game/gameReducer'
 import {
+  coinMilestoneIndex,
+  computeSuccessRate,
   findLockCandidates,
-  findMostDangerousTargetId,
-  shouldAdvanceStage,
+  findMostDangerousProjectileId,
+  shouldAwardCoinMilestone,
+  toTypingProblem,
 } from '../features/game/gameLogic'
 import {
-  applySequentialBottomDamage,
-  filterBottomReachTargetIds,
-} from '../features/game/bottomReachLogic'
+  canSpawnMore,
+  createEnemyProjectile,
+  resetProjectileIdSequence,
+} from '../features/game/projectileSpawner'
 import {
-  canSpawnTarget,
-  createTarget,
-  getFallSpeed,
-  getSpawnIntervalMs,
-  resetTargetIdSequence,
-} from '../features/game/targetSpawner'
-import { useGameLoop, type TargetMotion } from '../hooks/useGameLoop'
+  useFallingProjectileLoop,
+  type ProjectileMotionState,
+} from '../hooks/useFallingProjectileLoop'
 import { useKeyboardInput } from '../hooks/useKeyboardInput'
 import { createProblemBag, type ProblemBag } from '../utils/problemBag'
 import { calculateScore } from '../utils/calculateScore'
-import {
-  buildTypingStats,
-} from '../utils/calculateTypingStats'
+import { buildTypingStats } from '../utils/calculateTypingStats'
 import { computeElapsedMs } from '../utils/elapsedTime'
 import {
   computeRemainingMs,
@@ -67,20 +68,42 @@ import {
   applyScoreAbility,
   applyStageCoinAbility,
 } from '../utils/characterAbilities'
+import {
+  isEmergencySlash,
+  playerActionFromIntercept,
+  selectInterceptAction,
+  slashAngleDeg,
+  allyThrowAngleDeg,
+} from '../utils/interceptSelector'
+import {
+  distancePxBetween,
+  isProjectileHittingPlayer,
+} from '../utils/collision'
+import {
+  computeFallDurationMs,
+  estimateTimeToImpactMs,
+  computeFallProgress,
+  sampleFallingMotion,
+} from '../utils/fallingProjectileMotion'
 import { getSoundManager } from '../audio/SoundManager'
 import type { DifficultyId } from '../types/app'
-import type {
-  GameResultSummary,
-  GameTarget,
-  NinjaAnimationState,
-  PlayCoinSummary,
-} from '../types/game'
-import type { TypingProblem } from '../types/typing'
+import type { GameResultSummary, PlayCoinSummary } from '../types/game'
+import type { InterceptAction, EnemyProjectile } from '../types/projectile'
+import {
+  PLAYER_X_PERCENT,
+  PLAYER_Y_PERCENT,
+} from '../types/projectile'
 
-interface SlashItem {
+interface AllyFxItem {
   id: string
-  xPercent: number
-  yPx: number
+  fromXPercent: number
+  fromYPercent: number
+  toXPercent: number
+  toYPercent: number
+  areaWidthPx: number
+  areaHeightPx: number
+  angleDeg: number
+  variant: import('../components/game/AllyShurikenFx').AllyShurikenVariant
 }
 
 interface ComboPopup {
@@ -97,9 +120,7 @@ interface GameScreenProps {
   volume: number
   muted: boolean
   reducedMotion: boolean
-  /** ブラウザ戻る操作の要求カウンタ（増加時に一時停止＋終了確認） */
   browserBackRequest?: number
-  /** 現在の所持コイン（localStorage と同期） */
   coins: number
   onVolumeChange: (volume: number) => void
   onMutedChange: (muted: boolean) => void
@@ -113,15 +134,85 @@ interface GameScreenProps {
   onAbandonToTitle: () => void
 }
 
-function toTypingProblem(target: GameTarget, difficulty: DifficultyId): TypingProblem {
-  return {
-    id: target.problemId,
-    displayText: target.displayText,
-    reading: target.reading,
-    romajiPatterns: target.romajiPatterns,
-    difficulty,
-    category: 'basic',
-    baseScore: target.baseScore,
+import type { AllyShurikenVariant } from '../components/game/AllyShurikenFx'
+
+function allyVariantFor(characterId: string): AllyShurikenVariant {
+  if (characterId === 'shinobi-red') return 'fire'
+  if (characterId === 'shinobi-blue') return 'water'
+  if (characterId === 'shinobi-gold') return 'gold'
+  return 'basic'
+}
+
+function readPos(
+  id: string,
+  projectile: {
+    id: string
+    spawnX: number
+    spawnY: number
+    flightDurationMs: number
+    trajectory: import('../types/projectile').FallingTrajectory
+  },
+  motionRef: Map<string, ProjectileMotionState>,
+  elementRefs: Map<string, HTMLElement>,
+  frozenPositions?: Map<string, { xPercent: number; yPercent: number }>,
+): { xPercent: number; yPercent: number } {
+  const frozen = frozenPositions?.get(id)
+  if (frozen) {
+    return frozen
+  }
+  const el = elementRefs.get(id)
+  if (el?.dataset.x && el.dataset.y) {
+    return {
+      xPercent: Number(el.dataset.x),
+      yPercent: Number(el.dataset.y),
+    }
+  }
+  const motion = motionRef.get(id)
+  const elapsed = motion?.elapsedMs ?? 0
+  const progress = computeFallProgress(
+    elapsed,
+    projectile.flightDurationMs,
+  )
+  return sampleFallingMotion({
+    spawnX: projectile.spawnX,
+    spawnY: projectile.spawnY,
+    impactY: PLAYER_Y_PERCENT,
+    trajectory: projectile.trajectory,
+    progress,
+  })
+}
+
+const SPAWN_COLUMNS = [18, 34, 50, 66, 82] as const
+
+declare global {
+  interface Window {
+    __SHINOBI_KEYS_TEST__?: {
+      /** 次の1発だけ適用して消費する */
+      forceNextSpawn?: {
+        trajectory?: import('../types/projectile').FallingTrajectory
+        spawnX?: number
+        yPercent?: number
+        /** true なら位置を固定（被弾・距離判定用） */
+        freeze?: boolean
+        /** 残り接触時間を強制（緊急斬撃テスト用） */
+        remainingMs?: number
+      }
+      /** 即時1発（テスト用・消費） */
+      requestImmediateSpawn?: {
+        trajectory?: import('../types/projectile').FallingTrajectory
+        spawnX?: number
+        yPercent?: number
+        freeze?: boolean
+        remainingMs?: number
+        size?: import('../types/projectile').ProjectileSize
+        /** 検証用。本番の寿司打方式では使わない */
+        allowMultiple?: boolean
+      }
+      pauseMotion?: boolean
+      suppressSpawn?: boolean
+      /** 検証用: true で時間切れ終了を即時発火（消費） */
+      forceEndGame?: boolean
+    }
   }
 }
 
@@ -149,24 +240,26 @@ export function GameScreen({
   }))
 
   const [hudNowMs, setHudNowMs] = useState(() => Date.now())
-  const [areaHeight, setAreaHeight] = useState(0)
+  const [areaReady, setAreaReady] = useState(false)
+  const [areaSize, setAreaSize] = useState({ width: 800, height: 700 })
   const [damaged, setDamaged] = useState(false)
-  const [ninjaX, setNinjaX] = useState(50)
-  const [ninjaAnim, setNinjaAnim] = useState<NinjaAnimationState>('idle')
-  const [slashes, setSlashes] = useState<SlashItem[]>([])
+  const [allyFx, setAllyFx] = useState<AllyFxItem[]>([])
   const [comboPopup, setComboPopup] = useState<ComboPopup | null>(null)
+  const [slashAngle, setSlashAngle] = useState(0)
+  const [showEmergencyHint, setShowEmergencyHint] = useState(false)
   const [showScoreBurst, setShowScoreBurst] = useState(false)
   const [showScoreAbilityHint, setShowScoreAbilityHint] = useState(false)
   const [showGuardBurst, setShowGuardBurst] = useState(false)
-  const [guardFloat, setGuardFloat] = useState<{ reducedBy: number } | null>(
-    null,
-  )
+  const [guardFloat, setGuardFloat] = useState<{ reducedBy: number } | null>(null)
   const [pausedFromBrowserBack, setPausedFromBrowserBack] = useState(false)
   const [coinGainFlash, setCoinGainFlash] = useState<number | null>(null)
   const [goldAbilityFlash, setGoldAbilityFlash] = useState<number | null>(null)
 
-  const targetsRef = useRef<Map<string, TargetMotion>>(new Map())
+  const motionRef = useRef<Map<string, ProjectileMotionState>>(new Map())
   const elementRefs = useRef<Map<string, HTMLElement>>(new Map())
+  const frozenPositionsRef = useRef<
+    Map<string, { xPercent: number; yPercent: number }>
+  >(new Map())
   const timersRef = useRef<Set<number>>(new Set())
   const stateRef = useRef(state)
   const endedRef = useRef(false)
@@ -175,6 +268,8 @@ export function GameScreen({
   const playCoinTrackerRef = useRef<PlayCoinTracker>(createPlayCoinTracker())
   const abilityBonusScoreRef = useRef(0)
   const abilityBonusCoinsRef = useRef(0)
+  const resolvingIdsRef = useRef<Set<string>>(new Set())
+  const areaSizeRef = useRef(areaSize)
   const problemBagRef = useRef<ProblemBag | null>(null)
   if (problemBagRef.current === null) {
     problemBagRef.current = createProblemBag(difficulty)
@@ -191,6 +286,10 @@ export function GameScreen({
   }, [state])
 
   useEffect(() => {
+    areaSizeRef.current = areaSize
+  }, [areaSize])
+
+  useEffect(() => {
     isPlayingRef.current = true
     endedRef.current = false
   }, [])
@@ -198,22 +297,18 @@ export function GameScreen({
   useEffect(() => {
     const sound = getSoundManager()
     void sound.unlock().then(() => {
-      if (soundStartedRef.current) {
-        return
-      }
+      if (soundStartedRef.current) return
       soundStartedRef.current = true
       sound.setVolume(volume)
       sound.setMuted(muted)
       sound.playSfx('gameStart')
       sound.startBgm('game')
     })
-
     return () => {
       sound.stopBgm()
       soundStartedRef.current = false
     }
-    // Session-scoped audio bootstrap; volume/mute sync is handled separately.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- playSessionId is the remount boundary
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- playSessionId remount boundary
   }, [playSessionId])
 
   useEffect(() => {
@@ -236,14 +331,16 @@ export function GameScreen({
   }, [])
 
   useEffect(() => {
-    const targets = targetsRef.current
+    const motions = motionRef.current
     const elements = elementRefs.current
-    resetTargetIdSequence()
+    const resolvingIds = resolvingIdsRef.current
+    resetProjectileIdSequence()
     return () => {
       clearTimers()
       endedRef.current = true
-      targets.clear()
+      motions.clear()
       elements.clear()
+      resolvingIds.clear()
     }
   }, [clearTimers])
 
@@ -254,9 +351,7 @@ export function GameScreen({
       }
       return
     }
-    if (fromBrowserBack) {
-      setPausedFromBrowserBack(true)
-    }
+    if (fromBrowserBack) setPausedFromBrowserBack(true)
     dispatch({ type: 'PAUSE_GAME', atMs: Date.now() })
     const sound = getSoundManager()
     sound.pauseBgm()
@@ -264,9 +359,7 @@ export function GameScreen({
   }, [])
 
   const resumeGame = useCallback(() => {
-    if (stateRef.current.status !== 'paused') {
-      return
-    }
+    if (stateRef.current.status !== 'paused') return
     setPausedFromBrowserBack(false)
     dispatch({ type: 'RESUME_GAME', atMs: Date.now() })
     const sound = getSoundManager()
@@ -275,47 +368,35 @@ export function GameScreen({
   }, [])
 
   const togglePause = useCallback(() => {
-    if (stateRef.current.status === 'playing') {
-      pauseGame(false)
-    } else if (stateRef.current.status === 'paused') {
-      resumeGame()
-    }
+    if (stateRef.current.status === 'playing') pauseGame(false)
+    else if (stateRef.current.status === 'paused') resumeGame()
   }, [pauseGame, resumeGame])
 
   useEffect(() => {
-    if (browserBackRequest <= 0) {
-      return
-    }
-    const timerId = window.setTimeout(() => {
-      pauseGame(true)
-    }, 0)
-    return () => {
-      window.clearTimeout(timerId)
-    }
+    if (browserBackRequest <= 0) return
+    const timerId = window.setTimeout(() => pauseGame(true), 0)
+    return () => window.clearTimeout(timerId)
   }, [browserBackRequest, pauseGame])
 
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.hidden && stateRef.current.status === 'playing') {
-        pauseGame()
-      }
+      if (document.hidden && stateRef.current.status === 'playing') pauseGame()
     }
     document.addEventListener('visibilitychange', handleVisibility)
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [pauseGame])
 
   useEffect(() => {
-    if (state.status !== 'playing' || state.gameStartedAtMs === null) {
-      return
-    }
-
+    if (state.status !== 'playing' || state.gameStartedAtMs === null) return
     const tick = () => {
       const now = Date.now()
       setHudNowMs(now)
       const current = stateRef.current
-      if (current.status !== 'playing' || endedRef.current) {
+      if (current.status !== 'playing' || endedRef.current) return
+      if (window.__SHINOBI_KEYS_TEST__?.forceEndGame) {
+        window.__SHINOBI_KEYS_TEST__.forceEndGame = false
+        isPlayingRef.current = false
+        dispatch({ type: 'END_GAME', reason: 'timeout' })
         return
       }
       if (
@@ -333,16 +414,9 @@ export function GameScreen({
         dispatch({ type: 'END_GAME', reason: 'timeout' })
       }
     }
-
-    const intervalId = window.setInterval(
-      tick,
-      gameConfig.hudStatsUpdateIntervalMs,
-    )
+    const intervalId = window.setInterval(tick, gameConfig.hudStatsUpdateIntervalMs)
     tick()
-
-    return () => {
-      window.clearInterval(intervalId)
-    }
+    return () => window.clearInterval(intervalId)
   }, [state.status, state.gameStartedAtMs, config.timeLimitSeconds])
 
   useEffect(() => {
@@ -351,7 +425,6 @@ export function GameScreen({
       const sound = getSoundManager()
       sound.stopBgm()
       sound.playSfx('gameOver')
-
       const elapsedMs = computeElapsedMs(
         {
           gameStartedAtMs: state.gameStartedAtMs,
@@ -370,14 +443,16 @@ export function GameScreen({
       )
       const resultBonus = tryAwardResultBonus(playCoinTrackerRef.current, state.score)
       playCoinTrackerRef.current = resultBonus.tracker
-      const coinSummary = summarizePlayCoins(playCoinTrackerRef.current)
-
       onGameOver(
         {
           difficulty: state.difficulty,
           score: state.score,
-          stage: state.stage,
+          stage: Math.max(
+            1,
+            coinMilestoneIndex(state.destroyedTargets, config.coinMilestoneEvery),
+          ),
           destroyedTargets: state.destroyedTargets,
+          failedTargets: state.failedTargets,
           maxCombo: state.maxCombo,
           typedChars: stats.typedChars,
           correctChars: stats.correctChars,
@@ -385,218 +460,349 @@ export function GameScreen({
           elapsedMs: stats.elapsedMs,
           wpm: stats.wpm,
           accuracy: stats.accuracy,
+          successRate: computeSuccessRate(
+            state.destroyedTargets,
+            state.failedTargets,
+          ),
           characterId: playCharacter.characterId,
           abilityBonusScore: abilityBonusScoreRef.current,
           abilityBonusCoins: abilityBonusCoinsRef.current,
-          endReason: state.endReason ?? 'defense',
+          endReason: state.endReason ?? 'timeout',
           timeLimitSeconds: config.timeLimitSeconds,
         },
         playSessionId,
-        coinSummary,
+        summarizePlayCoins(playCoinTrackerRef.current),
       )
     }
-  }, [state, onGameOver, playSessionId, playCharacter.characterId, config.timeLimitSeconds])
+  }, [state, onGameOver, playSessionId, playCharacter.characterId, config.timeLimitSeconds, config.coinMilestoneEvery])
 
   useEffect(() => {
-    if (!state.showMissFeedback) {
-      return
-    }
+    if (!state.showMissFeedback) return
     schedule(() => dispatch({ type: 'CLEAR_MISS_FEEDBACK' }), gameConfig.missFeedbackMs)
   }, [state.showMissFeedback, schedule])
 
   useEffect(() => {
-    if (!state.showStageUpFlash) {
+    if (!shouldAwardCoinMilestone(state.destroyedTargets, config.coinMilestoneEvery)) {
       return
     }
+    const milestone = coinMilestoneIndex(
+      state.destroyedTargets,
+      config.coinMilestoneEvery,
+    )
+    const award = tryAwardStageClear(playCoinTrackerRef.current, milestone)
+    if (!award.awarded) return
     getSoundManager().playSfx('stageUp')
-
-    const clearedStage = state.stage - 1
-    const award = tryAwardStageClear(playCoinTrackerRef.current, clearedStage)
-    if (award.awarded) {
-      const applied = applyStageCoinAbility(award.coins, playCharacter.ability)
-      const awards = [...award.tracker.stageAwards]
-      const last = awards[awards.length - 1]!
-      awards[awards.length - 1] = { stage: last.stage, coins: applied.finalCoins }
-      playCoinTrackerRef.current = { ...award.tracker, stageAwards: awards }
-      abilityBonusCoinsRef.current += applied.bonusCoins
-      onAwardStageCoins(applied.finalCoins)
-      setCoinGainFlash(applied.finalCoins)
-      schedule(() => setCoinGainFlash(null), 900)
-      if (applied.bonusCoins > 0) {
-        setGoldAbilityFlash(applied.bonusCoins)
-        schedule(() => setGoldAbilityFlash(null), 900)
-      }
+    const applied = applyStageCoinAbility(award.coins, playCharacter.ability)
+    const awards = [...award.tracker.stageAwards]
+    const last = awards[awards.length - 1]!
+    awards[awards.length - 1] = { stage: last.stage, coins: applied.finalCoins }
+    playCoinTrackerRef.current = { ...award.tracker, stageAwards: awards }
+    abilityBonusCoinsRef.current += applied.bonusCoins
+    onAwardStageCoins(applied.finalCoins)
+    setCoinGainFlash(applied.finalCoins)
+    schedule(() => setCoinGainFlash(null), 900)
+    if (applied.bonusCoins > 0) {
+      setGoldAbilityFlash(applied.bonusCoins)
+      schedule(() => setGoldAbilityFlash(null), 900)
     }
-
-    schedule(() => dispatch({ type: 'CLEAR_STAGE_UP_FLASH' }), 450)
   }, [
-    state.showStageUpFlash,
-    state.stage,
+    state.destroyedTargets,
+    config.coinMilestoneEvery,
     schedule,
     onAwardStageCoins,
     playCharacter.ability,
   ])
 
+
   const registerElement = useCallback((id: string, element: HTMLElement | null) => {
-    if (element) {
-      elementRefs.current.set(id, element)
-      const motion = targetsRef.current.get(id)
-      if (motion) {
-        element.style.transform = `translate3d(-50%, ${motion.y}px, 0)`
-        element.dataset.fallY = String(Math.round(motion.y))
-      }
-    } else {
-      elementRefs.current.delete(id)
-    }
+    if (element) elementRefs.current.set(id, element)
+    else elementRefs.current.delete(id)
   }, [])
 
-  const handleSpawnNeeded = useCallback(() => {
-    if (!isPlayingRef.current) {
-      return
-    }
-    const current = stateRef.current
-    if (current.status !== 'playing') {
-      return
-    }
+  const getProjectiles = useCallback(() => stateRef.current.activeProjectiles, [])
+  const gameNowMs = useCallback(() => Date.now(), [])
 
-    const living = current.activeTargets.filter((t) => t.state !== 'destroyed')
-    const maxActive = getMaxActiveTargetsForStage(config, current.stage)
-    if (!canSpawnTarget(living.length, maxActive)) {
-      return
-    }
+  const spawnFromDirector = useCallback(
+    (wallNowMs: number): number => {
+      try {
+        const current = stateRef.current
+        if (current.status !== 'playing') return 0
 
-    const activeProblemIds = new Set(living.map((t) => t.problemId))
-    const problem = problemBagRef.current!.next(activeProblemIds)
-    const target = createTarget({
-      problem,
-      speed: getFallSpeed(config, current.stage),
-      existingXPercents: living.map((t) => t.xPercent),
-    })
+        const spawnOne = (
+          opts: {
+            spawnX: number
+            trajectory: import('../types/projectile').FallingTrajectory
+            size: import('../types/projectile').ProjectileSize
+            damage: number
+            yPercent?: number
+            freeze?: boolean
+            remainingMs?: number
+          },
+          living: EnemyProjectile[],
+        ): EnemyProjectile | null => {
+          if (!problemBagRef.current) {
+            problemBagRef.current = createProblemBag(difficulty)
+          }
+          const activeProblemIds = new Set(living.map((p) => p.problemId))
+          const problem = problemBagRef.current.next(activeProblemIds)
+          const romajiLen = Math.max(
+            1,
+            ...problem.romajiPatterns.map((p) => p.length),
+          )
+          const flightDurationMs = computeFallDurationMs({
+            romajiLength: romajiLen,
+            fallSpeed: config.fallSpeed,
+            trajectory: opts.trajectory,
+            size: opts.size,
+          })
+          const projectile = createEnemyProjectile({
+            problem,
+            spawnX: opts.spawnX,
+            trajectory: opts.trajectory,
+            size: opts.size,
+            damage: opts.damage,
+            flightDurationMs,
+            nowMs: wallNowMs,
+          })
+          if (typeof opts.yPercent === 'number') {
+            const yPercent = opts.yPercent
+            let elapsedMs = Math.max(
+              0,
+              ((yPercent - projectile.spawnY) /
+                (PLAYER_Y_PERCENT - projectile.spawnY)) *
+                projectile.flightDurationMs,
+            )
+            if (typeof opts.remainingMs === 'number') {
+              elapsedMs = Math.max(
+                0,
+                projectile.flightDurationMs - Math.max(0, opts.remainingMs),
+              )
+            }
+            motionRef.current.set(projectile.id, { elapsedMs })
+            if (opts.freeze) {
+              frozenPositionsRef.current.set(projectile.id, {
+                xPercent: projectile.spawnX,
+                yPercent,
+              })
+            }
+          } else if (typeof opts.remainingMs === 'number') {
+            motionRef.current.set(projectile.id, {
+              elapsedMs: Math.max(
+                0,
+                projectile.flightDurationMs - Math.max(0, opts.remainingMs),
+              ),
+            })
+          } else {
+            motionRef.current.set(projectile.id, { elapsedMs: 0 })
+          }
+          dispatch({ type: 'SPAWN_PROJECTILE', projectile })
+          return projectile
+        }
 
-    targetsRef.current.set(target.id, {
-      y: target.yPosition,
-      speed: target.speed,
-    })
-    dispatch({ type: 'SPAWN_TARGET', target })
-  }, [config])
+        const living = current.activeProjectiles.filter(
+          (p) =>
+            p.state === 'incoming' ||
+            p.state === 'targeted' ||
+            p.state === 'resolving' ||
+            p.state === 'hit',
+        ) as EnemyProjectile[]
 
-  const handleTargetsReachedBottom = useCallback(
-    (targetIds: string[]) => {
-      if (!isPlayingRef.current) {
-        return
+        const immediate = window.__SHINOBI_KEYS_TEST__?.requestImmediateSpawn
+        if (immediate && window.__SHINOBI_KEYS_TEST__) {
+          window.__SHINOBI_KEYS_TEST__.requestImmediateSpawn = undefined
+          // 寿司打: 原則1体。allowMultiple は検証用のみ
+          if (!immediate.allowMultiple && living.length > 0) {
+            return 0
+          }
+          const spawned = spawnOne(
+            {
+              spawnX: immediate.spawnX ?? PLAYER_X_PERCENT,
+              trajectory: immediate.trajectory ?? 'straight',
+              size: immediate.size ?? 'normal',
+              damage: config.missDamage,
+              yPercent: immediate.yPercent,
+              freeze: immediate.freeze,
+              remainingMs: immediate.remainingMs,
+            },
+            living,
+          )
+          return spawned ? 1 : 0
+        }
+
+        if (window.__SHINOBI_KEYS_TEST__?.suppressSpawn) return 0
+
+        // 寿司打方式: 結果が出るまで次を出さない（同時は常に最大1）
+        const maxActive = getMaxActiveTargets(config)
+        if (!canSpawnMore(living.length, maxActive)) return 0
+        if (living.length > 0) return 0
+
+        const forceSpawn = window.__SHINOBI_KEYS_TEST__?.forceNextSpawn
+        if (forceSpawn && window.__SHINOBI_KEYS_TEST__) {
+          window.__SHINOBI_KEYS_TEST__.forceNextSpawn = undefined
+        }
+
+        const spawnX =
+          forceSpawn?.spawnX ??
+          SPAWN_COLUMNS[Math.floor(Math.random() * SPAWN_COLUMNS.length)]!
+
+        const projectile = spawnOne(
+          {
+            spawnX,
+            trajectory: forceSpawn?.trajectory ?? 'straight',
+            size: 'normal',
+            damage: config.missDamage,
+            yPercent: forceSpawn?.yPercent,
+            freeze: forceSpawn?.freeze,
+            remainingMs: forceSpawn?.remainingMs,
+          },
+          living,
+        )
+        return projectile ? 1 : 0
+      } catch (error) {
+        console.error('spawnFromDirector failed', error)
+        return 0
       }
+    },
+    [config, difficulty],
+  )
 
+
+  const handleImpactCheck = useCallback(
+    (nowMs: number) => {
+      if (!isPlayingRef.current) return
       const current = stateRef.current
-      if (current.status !== 'playing') {
-        return
-      }
+      if (current.status !== 'playing') return
 
-      const eligibleIds = filterBottomReachTargetIds(
-        targetIds,
-        current.activeTargets,
-        targetsRef.current,
-      )
-      if (eligibleIds.length === 0) {
-        return
-      }
-
-      const damageResult = applyDamageAbility(
-        config.missDamage,
-        playCharacter.ability,
-      )
-
-      const { appliedTargetIds, remainingDefense } = applySequentialBottomDamage(
-        current.defense,
-        eligibleIds,
-        damageResult.finalDamage,
-      )
-
-      if (damageResult.reducedBy > 0 && appliedTargetIds.length > 0) {
-        setShowGuardBurst(true)
-        setGuardFloat({ reducedBy: damageResult.reducedBy })
-        schedule(() => {
-          setShowGuardBurst(false)
-          setGuardFloat(null)
-        }, 800)
-      }
-
-      for (const id of appliedTargetIds) {
-        if (!targetsRef.current.has(id)) {
+      for (const projectile of current.activeProjectiles) {
+        if (
+          projectile.state === 'destroyed' ||
+          projectile.state === 'hit' ||
+          projectile.state === 'resolving'
+        ) {
+          const motion = motionRef.current.get(projectile.id)
+          if (motion && motion.elapsedMs > projectile.flightDurationMs + 600) {
+            motionRef.current.delete(projectile.id)
+            elementRefs.current.delete(projectile.id)
+            resolvingIdsRef.current.delete(projectile.id)
+            frozenPositionsRef.current.delete(projectile.id)
+            dispatch({ type: 'REMOVE_PROJECTILE', projectileId: projectile.id })
+          }
           continue
         }
 
-        targetsRef.current.delete(id)
-        elementRefs.current.delete(id)
-        getSoundManager().playSfx('damage')
-        setNinjaAnim('damage')
-        setDamaged(!reducedMotion)
-        schedule(() => setNinjaAnim('idle'), 220)
-        schedule(() => setDamaged(false), 200)
-        dispatch({
-          type: 'TARGET_REACHED_BOTTOM',
-          targetId: id,
-          damage: damageResult.finalDamage,
-        })
-      }
+        if (resolvingIdsRef.current.has(projectile.id)) continue
 
-      if (remainingDefense <= 0) {
-        isPlayingRef.current = false
+        const pos = readPos(
+          projectile.id,
+          projectile,
+          motionRef.current,
+          elementRefs.current,
+          frozenPositionsRef.current,
+        )
+
+        if (
+          isProjectileHittingPlayer({
+            projectile,
+            xPercent: pos.xPercent,
+            yPercent: pos.yPercent,
+            playerAction: current.playerAction,
+            invulnerableUntilMs: current.invulnerableUntilMs,
+            nowMs,
+          })
+        ) {
+          const damageResult = applyDamageAbility(
+            projectile.damage,
+            playCharacter.ability,
+          )
+          if (damageResult.reducedBy > 0) {
+            setShowGuardBurst(true)
+            setGuardFloat({ reducedBy: damageResult.reducedBy })
+            schedule(() => {
+              setShowGuardBurst(false)
+              setGuardFloat(null)
+            }, 800)
+          }
+          getSoundManager().playSfx('damage')
+          setDamaged(!reducedMotion)
+          schedule(() => setDamaged(false), 200)
+          schedule(() => {
+            if (stateRef.current.playerAction === 'damaged') {
+              dispatch({ type: 'SET_PLAYER_ACTION', action: 'idle' })
+            }
+          }, 280)
+          dispatch({
+            type: 'PROJECTILE_HIT_PLAYER',
+            projectileId: projectile.id,
+            damage: damageResult.finalDamage,
+            invulnerableUntilMs: nowMs + gameConfig.invulnerableMs,
+          })
+          schedule(() => {
+            motionRef.current.delete(projectile.id)
+            elementRefs.current.delete(projectile.id)
+            frozenPositionsRef.current.delete(projectile.id)
+            dispatch({ type: 'REMOVE_PROJECTILE', projectileId: projectile.id })
+            // 失敗後に次の敵を生成（寿司打方式）
+            if (stateRef.current.status === 'playing') {
+              spawnFromDirector(Date.now())
+            }
+          }, 120)
+          break
+        }
       }
     },
-    [config.missDamage, schedule, reducedMotion, playCharacter],
+    [playCharacter.ability, reducedMotion, schedule, spawnFromDirector],
   )
 
-  const getSpawnInterval = useCallback(() => {
-    return getSpawnIntervalMs(config, stateRef.current.stage)
-  }, [config])
-
-  useGameLoop({
-    enabled: state.status === 'playing' && areaHeight > 0,
-    areaHeight,
-    getSpawnIntervalMs: getSpawnInterval,
-    onSpawnNeeded: handleSpawnNeeded,
-    onTargetsReachedBottom: handleTargetsReachedBottom,
-    targetsRef,
+  useFallingProjectileLoop({
+    enabled: state.status === 'playing' && areaReady,
+    getProjectiles,
+    motionRef,
     elementRefs,
+    frozenPositionsRef,
+    onFrameImpactCheck: handleImpactCheck,
+    onSpawnTick: spawnFromDirector,
+    gameNowMs,
   })
+
+  useEffect(() => {
+    if (state.status !== 'playing' || !areaReady) return
+    spawnFromDirector(Date.now())
+    const id = window.setInterval(() => {
+      if (stateRef.current.status === 'playing') spawnFromDirector(Date.now())
+    }, 280)
+    return () => window.clearInterval(id)
+  }, [state.status, areaReady, spawnFromDirector])
 
   const handleChar = useCallback(
     (char: string) => {
-      if (!isPlayingRef.current) {
-        return
-      }
+      if (!isPlayingRef.current) return
       const current = stateRef.current
-      if (current.status !== 'playing') {
-        return
-      }
+      if (current.status !== 'playing') return
 
-      const living = current.activeTargets.filter((t) => t.state !== 'destroyed')
-      let targetId = current.lockedTargetId
+      const living = current.activeProjectiles.filter(
+        (p) => p.state === 'incoming' || p.state === 'targeted',
+      )
+      let projectileId = current.lockedProjectileId
 
-      if (!targetId) {
+      if (!projectileId) {
         const candidates = findLockCandidates(living, char)
-        const yMap = new Map<string, number>()
-        living.forEach((t) => {
-          yMap.set(t.id, targetsRef.current.get(t.id)?.y ?? t.yPosition)
-        })
-        targetId = findMostDangerousTargetId(candidates, yMap)
-        if (!targetId) {
+        projectileId = findMostDangerousProjectileId(candidates)
+        if (!projectileId) {
           getSoundManager().playSfx('typeMiss')
           dispatch({ type: 'TYPE_MISS' })
           return
         }
       }
 
-      const target = living.find((t) => t.id === targetId)
-      if (!target) {
+      const projectile = living.find((p) => p.id === projectileId)
+      if (!projectile || projectile.state === 'hit') {
         getSoundManager().playSfx('typeMiss')
         dispatch({ type: 'TYPE_MISS' })
         return
       }
 
-      const problem = toTypingProblem(target, current.difficulty)
-      const matchResult = processRomajiInput(target.matchState, problem, char)
-
+      const problem = toTypingProblem(projectile, current.difficulty)
+      const matchResult = processRomajiInput(projectile.matchState, problem, char)
       if (!matchResult.accepted) {
         getSoundManager().playSfx('typeMiss')
         dispatch({ type: 'TYPE_MISS' })
@@ -604,20 +810,74 @@ export function GameScreen({
       }
 
       getSoundManager().playSfx('typeCorrect')
-      setNinjaX(target.xPercent)
-      setNinjaAnim('attack')
-      schedule(() => setNinjaAnim('idle'), 160)
 
       if (matchResult.isComplete) {
+        const fresh = stateRef.current.activeProjectiles.find(
+          (p) => p.id === projectile.id,
+        )
+        if (
+          !fresh ||
+          fresh.state === 'hit' ||
+          fresh.state === 'destroyed' ||
+          fresh.state === 'resolving' ||
+          resolvingIdsRef.current.has(projectile.id)
+        ) {
+          return
+        }
+
+        resolvingIdsRef.current.add(projectile.id)
+        const pos = readPos(
+          projectile.id,
+          projectile,
+          motionRef.current,
+          elementRefs.current,
+          frozenPositionsRef.current,
+        )
+        // 演出用に現在位置で固定（判定はすでに確定）
+        frozenPositionsRef.current.set(projectile.id, {
+          xPercent: pos.xPercent,
+          yPercent: pos.yPercent,
+        })
+        const elNow = elementRefs.current.get(projectile.id)
+        if (elNow) {
+          elNow.style.left = `${pos.xPercent}%`
+          elNow.style.top = `${pos.yPercent}%`
+          elNow.dataset.x = String(Math.round(pos.xPercent))
+          elNow.dataset.y = String(Math.round(pos.yPercent))
+        }
+        const dist = distancePxBetween(
+          pos.xPercent,
+          pos.yPercent,
+          PLAYER_X_PERCENT,
+          PLAYER_Y_PERCENT,
+          areaSizeRef.current.width,
+          areaSizeRef.current.height,
+        )
+        const elapsedMs = motionRef.current.get(projectile.id)?.elapsedMs ?? 0
+        const timeToImpactMs = estimateTimeToImpactMs(
+          elapsedMs,
+          projectile.flightDurationMs,
+        )
+        const decision = selectInterceptAction({
+          distancePx: dist,
+          gameHeightPx: areaSizeRef.current.height,
+          timeToImpactMs,
+          projectileState: fresh.state,
+        })
+        if (!decision.canIntercept) {
+          resolvingIdsRef.current.delete(projectile.id)
+          return
+        }
+
+        const action: InterceptAction = decision.action
         const nextCombo = current.combo + 1
         const baseGain = calculateScore({
-          baseScore: target.baseScore,
+          baseScore: projectile.baseScore,
           difficultyMultiplier: config.scoreMultiplier,
           combo: nextCombo,
           comboMultiplier: config.comboMultiplier,
         })
         const applied = applyScoreAbility(baseGain, playCharacter.ability)
-        const scoreGain = applied.finalScore
         abilityBonusScoreRef.current += applied.bonusScore
         if (applied.bonusScore > 0) {
           setShowScoreBurst(true)
@@ -627,66 +887,116 @@ export function GameScreen({
             setShowScoreAbilityHint(false)
           }, 700)
         }
-        const shouldAdvance = shouldAdvanceStage(
-          current.destroyedTargets + 1,
-          config.stageUpCondition,
-          current.score + scoreGain,
-        )
-        const y = targetsRef.current.get(target.id)?.y ?? target.yPosition
+
+        const playerAct = playerActionFromIntercept(action)
+        dispatch({ type: 'SET_PLAYER_ACTION', action: playerAct })
+        if (isEmergencySlash(action)) {
+          setSlashAngle(
+            slashAngleDeg(
+              pos.xPercent,
+              pos.yPercent,
+              PLAYER_X_PERCENT,
+              PLAYER_Y_PERCENT,
+            ),
+          )
+          setShowEmergencyHint(true)
+          schedule(() => setShowEmergencyHint(false), 500)
+          // ヒットストップ風の短い強調（DOM class のみ・React state なし）
+          const el = elementRefs.current.get(projectile.id)
+          if (el && !reducedMotion) {
+            el.classList.add('projectile-hitstop')
+            schedule(() => el.classList.remove('projectile-hitstop'), 60)
+          }
+        }
+
+        schedule(() => {
+          if (
+            stateRef.current.playerAction === playerAct &&
+            stateRef.current.status === 'playing'
+          ) {
+            dispatch({ type: 'SET_PLAYER_ACTION', action: 'idle' })
+          }
+        }, isEmergencySlash(action) ? 380 : 400)
+
         getSoundManager().playSfx('destroy')
 
-        if (!reducedMotion) {
-          const slashId = `slash-${target.id}-${Date.now()}`
-          setSlashes((prev) => [
+        if (action === 'throw' && !reducedMotion) {
+          const fxId = `ally-${projectile.id}-${Date.now()}`
+          const fromX = PLAYER_X_PERCENT
+          const fromY = PLAYER_Y_PERCENT - 6
+          setAllyFx((prev) => [
             ...prev,
-            { id: slashId, xPercent: target.xPercent, yPx: y },
+            {
+              id: fxId,
+              fromXPercent: fromX,
+              fromYPercent: fromY,
+              toXPercent: pos.xPercent,
+              toYPercent: pos.yPercent,
+              areaWidthPx: areaSizeRef.current.width,
+              areaHeightPx: areaSizeRef.current.height,
+              angleDeg: allyThrowAngleDeg(
+                fromX,
+                fromY,
+                pos.xPercent,
+                pos.yPercent,
+              ),
+              variant: allyVariantFor(playCharacter.characterId),
+            },
           ])
           schedule(() => {
-            setSlashes((prev) => prev.filter((item) => item.id !== slashId))
-          }, 300)
+            setAllyFx((prev) => prev.filter((item) => item.id !== fxId))
+          }, 400)
+        }
 
-          if (nextCombo >= gameConfig.comboPopupThreshold) {
-            const popupId = `combo-${slashId}`
-            setComboPopup({
-              id: popupId,
-              combo: nextCombo,
-              xPercent: target.xPercent,
-              yPx: y,
-            })
-            schedule(() => {
-              setComboPopup((prev) => (prev?.id === popupId ? null : prev))
-            }, 900)
-          }
+        if (!reducedMotion && nextCombo >= gameConfig.comboPopupThreshold) {
+          const popupId = `combo-${projectile.id}`
+          setComboPopup({
+            id: popupId,
+            combo: nextCombo,
+            xPercent: pos.xPercent,
+            yPx: (pos.yPercent / 100) * areaSizeRef.current.height,
+          })
+          schedule(() => {
+            setComboPopup((prev) => (prev?.id === popupId ? null : prev))
+          }, 900)
         }
 
         dispatch({
           type: 'TYPE_CORRECT',
-          targetId: target.id,
+          projectileId: projectile.id,
           typedLength: matchResult.nextConfirmedLength,
           matchState: matchResult.nextState,
         })
         dispatch({
-          type: 'DESTROY_TARGET',
-          targetId: target.id,
-          scoreGain,
+          type: 'RESOLVE_PROJECTILE',
+          projectileId: projectile.id,
+          action,
+          scoreGain: applied.finalScore,
           heal: config.killHeal,
-          shouldAdvanceStage: shouldAdvance,
         })
 
-        // 演出は独立。入力対象からは即除外済み（DESTROY で activeTargets から削除）
-        targetsRef.current.delete(target.id)
-        elementRefs.current.delete(target.id)
+        schedule(() => {
+          motionRef.current.delete(projectile.id)
+          elementRefs.current.delete(projectile.id)
+          resolvingIdsRef.current.delete(projectile.id)
+          frozenPositionsRef.current.delete(projectile.id)
+          dispatch({ type: 'REMOVE_PROJECTILE', projectileId: projectile.id })
+          // 成功後に次の敵を生成（寿司打方式）
+          if (stateRef.current.status === 'playing') {
+            spawnFromDirector(Date.now())
+          }
+        }, gameConfig.destroyRemoveDelayMs)
         return
       }
 
       dispatch({
         type: 'TYPE_CORRECT',
-        targetId: target.id,
+        projectileId: projectile.id,
         typedLength: matchResult.nextConfirmedLength,
         matchState: matchResult.nextState,
       })
     },
-    [config, schedule, reducedMotion, playCharacter],
+    [config, schedule, reducedMotion, playCharacter, spawnFromDirector],
   )
 
   const hudStats = useMemo(() => {
@@ -744,38 +1054,65 @@ export function GameScreen({
 
   const handleAreaReady = useCallback((element: HTMLDivElement | null) => {
     if (!element) {
+      setAreaReady(false)
       return
     }
-    setAreaHeight(element.clientHeight)
+    setAreaSize({
+      width: element.clientWidth,
+      height: element.clientHeight,
+    })
+    setAreaReady(element.clientHeight > 0)
   }, [])
 
-  const handleAbandon = useCallback(() => {
-    getSoundManager().stopBgm()
-    onAbandonToTitle()
-  }, [onAbandonToTitle])
-
-  const handleRetryFromPause = useCallback(() => {
-    getSoundManager().stopBgm()
-    onRetry()
-  }, [onRetry])
+  useEffect(() => {
+    if (state.status !== 'playing') return
+    const timerId = window.setTimeout(() => {
+      setAreaReady((ready) => ready || true)
+    }, 50)
+    return () => window.clearTimeout(timerId)
+  }, [state.status])
 
   return (
     <main className="flex min-h-[100vh] min-h-[100dvh] flex-col items-center overflow-x-hidden px-1 py-1 sm:px-2 sm:py-2">
       <GameArea damaged={damaged && !reducedMotion} onReady={handleAreaReady}>
+        <TrainingGroundBackground
+          paused={state.status !== 'playing'}
+          reducedMotion={reducedMotion}
+        />
+        <span className="sr-only" data-testid="projectile-count">
+          {state.activeProjectiles.length}
+        </span>
         <GameHud
           score={state.score}
           combo={state.combo}
-          stage={state.stage}
-          showStageUp={state.showStageUpFlash && !reducedMotion}
           remainingLabel={formatRemainingTime(hudRemainingMs)}
           remainingUrgent={hudRemainingMs <= 10_000}
           wpm={hudStats.wpm}
           coins={coins}
           coinGainFlash={coinGainFlash}
           showScoreAbilityHint={showScoreAbilityHint}
-          onPause={state.status === 'playing' ? () => pauseGame(false) : undefined}
+          onPause={
+            state.status === 'playing' ? () => pauseGame(false) : undefined
+          }
         />
         <DefenseGauge defense={state.defense} maxDefense={gameConfig.maxHealth} />
+
+        {(() => {
+          const prompt = state.activeProjectiles.find(
+            (p) => p.state === 'incoming' || p.state === 'targeted',
+          )
+          if (!prompt) return null
+          return (
+            <ProblemBanner
+              projectile={prompt}
+              showMiss={
+                !reducedMotion &&
+                state.showMissFeedback &&
+                state.lockedProjectileId === prompt.id
+              }
+            />
+          )
+        })()}
 
         {goldAbilityFlash !== null && goldAbilityFlash > 0 && (
           <p
@@ -786,21 +1123,38 @@ export function GameScreen({
           </p>
         )}
 
-        {state.activeTargets.map((target) => (
-          <FallingTarget
-            key={target.id}
-            target={target}
-            isLocked={state.lockedTargetId === target.id}
-            showMiss={
-              !reducedMotion &&
-              state.showMissFeedback &&
-              state.lockedTargetId === target.id
-            }
-            registerElement={registerElement}
-          />
-        ))}
+        {state.activeProjectiles.map((projectile) =>
+          projectile.state === 'hit' ? null : (
+            <EnemyProjectileView
+              key={projectile.id}
+              projectile={projectile}
+              isLocked={state.lockedProjectileId === projectile.id}
+              showMiss={
+                !reducedMotion &&
+                state.showMissFeedback &&
+                state.lockedProjectileId === projectile.id
+              }
+              registerElement={registerElement}
+            />
+          ),
+        )}
 
-        {!reducedMotion && <SlashEffect effects={slashes} />}
+        {!reducedMotion &&
+          allyFx.map((fx) => (
+            <AllyShurikenFx
+              key={fx.id}
+              id={fx.id}
+              fromXPercent={fx.fromXPercent}
+              fromYPercent={fx.fromYPercent}
+              toXPercent={fx.toXPercent}
+              toYPercent={fx.toYPercent}
+              areaWidthPx={fx.areaWidthPx}
+              areaHeightPx={fx.areaHeightPx}
+              angleDeg={fx.angleDeg}
+              variant={fx.variant}
+            />
+          ))}
+
         {!reducedMotion && comboPopup && (
           <ComboDisplay
             combo={comboPopup.combo}
@@ -811,18 +1165,24 @@ export function GameScreen({
         )}
 
         <NinjaPlayer
-          xPercent={ninjaX}
-          animation={ninjaAnim}
+          action={state.playerAction}
           character={playCharacter}
           reducedMotion={reducedMotion}
+          slashAngleDeg={slashAngle}
           showScoreBurst={showScoreBurst}
           showGuardBurst={showGuardBurst}
+          showEmergencyHint={showEmergencyHint}
         />
 
         {guardFloat && (
           <div
-            className="pointer-events-none absolute bottom-28 z-40 -translate-x-1/2 md:bottom-32"
-            style={{ left: `${ninjaX}%` }}
+            className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2"
+            style={
+              {
+                left: `${PLAYER_X_PERCENT}%`,
+                top: `${PLAYER_Y_PERCENT - 12}%`,
+              } as CSSProperties
+            }
           >
             <AbilityFloatText
               text={`蒼影の守り -${guardFloat.reducedBy}`}
@@ -833,7 +1193,7 @@ export function GameScreen({
 
         {config.showBeginnerGuide && state.destroyedTargets === 0 && (
           <p className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[90%] -translate-x-1/2 text-center text-sm text-[var(--color-text-soft)] md:bottom-32">
-            落下する日本語をローマ字入力して手裏剣を撃ち落とせ！
+            表示された文字を入力して迎撃。成功または失敗のあと、次の敵が現れます
           </p>
         )}
 
@@ -844,8 +1204,14 @@ export function GameScreen({
             muted={muted}
             confirmExit={pausedFromBrowserBack}
             onResume={resumeGame}
-            onRetry={handleRetryFromPause}
-            onTitle={handleAbandon}
+            onRetry={() => {
+              getSoundManager().stopBgm()
+              onRetry()
+            }}
+            onTitle={() => {
+              getSoundManager().stopBgm()
+              onAbandonToTitle()
+            }}
             onVolumeChange={onVolumeChange}
             onMutedChange={onMutedChange}
           />

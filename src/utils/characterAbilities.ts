@@ -92,7 +92,7 @@ export function applyDamageAbility(
   }
 }
 
-/** 黄金：ステージクリアコインのみ倍率（成績ボーナスには使わない） */
+/** 黄金：撃破マイルストーンコインのみ倍率（成績ボーナスには使わない） */
 export function applyStageCoinAbility(
   baseCoins: number,
   ability: CharacterAbility,

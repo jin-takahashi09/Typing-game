@@ -1,28 +1,21 @@
 import type { DifficultyId } from './app'
 import type { PlayComparison } from './records'
-import type { RomajiMatchState } from './typing'
+import type {
+  EnemyProjectile,
+  PlayerAction,
+  InterceptAction,
+} from './projectile'
 
 export type GameStatus = 'ready' | 'playing' | 'paused' | 'gameover'
-export type TargetState = 'falling' | 'locked' | 'destroyed'
-export type NinjaAnimationState = 'idle' | 'attack' | 'damage'
-export type GameEndReason = 'defense' | 'timeout'
+/** 終了条件は時間切れのみ（defense は旧セーブ互換用） */
+export type GameEndReason = 'timeout' | 'defense'
 
-export interface GameTarget {
-  id: string
-  problemId: string
-  displayText: string
-  reading: string
-  displayRomaji: string
-  romajiPatterns: readonly string[]
-  matchState: RomajiMatchState
-  typedLength: number
-  xPercent: number
-  /** 生成時の初期 Y。判定用の現在 Y は targetsRef が正 */
-  yPosition: number
-  speed: number
-  state: TargetState
-  baseScore: number
-}
+/** @deprecated */
+export type NinjaAnimationState = 'idle' | 'attack' | 'damage'
+
+export type { EnemyProjectile, PlayerAction, InterceptAction }
+/** @deprecated use InterceptAction */
+export type AutoAction = InterceptAction
 
 export interface GameState {
   status: GameStatus
@@ -31,11 +24,14 @@ export interface GameState {
   combo: number
   maxCombo: number
   defense: number
-  stage: number
   destroyedTargets: number
-  activeTargets: GameTarget[]
-  lockedTargetId: string | null
+  /** 落下到達などによる失敗数 */
+  failedTargets: number
+  activeProjectiles: EnemyProjectile[]
+  lockedProjectileId: string | null
   lastProblemId: string | null
+  lastInterceptAction: InterceptAction | null
+  playerAction: PlayerAction
   typedCount: number
   correctChars: number
   missCount: number
@@ -43,16 +39,17 @@ export interface GameState {
   pausedTotalMs: number
   pausedAtMs: number | null
   showMissFeedback: boolean
-  showStageUpFlash: boolean
-  /** 終了理由。未終了時は null */
   endReason: GameEndReason | null
+  invulnerableUntilMs: number
 }
 
 export interface GameResultSummary {
   difficulty: DifficultyId
   score: number
+  /** @deprecated ステージ制廃止。セーブ互換のため残し、常に 1 またはマイルストーン数 */
   stage: number
   destroyedTargets: number
+  failedTargets: number
   maxCombo: number
   typedChars: number
   correctChars: number
@@ -60,6 +57,8 @@ export interface GameResultSummary {
   elapsedMs: number
   wpm: number
   accuracy: number
+  /** 撃破成功率（撃破 / (撃破+失敗)） */
+  successRate: number
   characterId: string
   abilityBonusScore: number
   abilityBonusCoins: number
@@ -68,9 +67,12 @@ export interface GameResultSummary {
 }
 
 export interface PlayCoinSummary {
+  /** 互換用内部名。UI 表示は「撃破ボーナス」 */
   stageClearCoins: number
+  /** 成績ボーナス */
   resultBonusCoins: number
   totalEarned: number
+  /** 互換用。マイルストーンごとの内訳 */
   stageAwards: readonly { stage: number; coins: number }[]
   balanceAfter: number
 }
@@ -85,25 +87,30 @@ export interface ResultViewModel {
 
 export type GameAction =
   | { type: 'START_GAME'; difficulty: DifficultyId; maxDefense: number; startedAtMs: number }
-  | { type: 'SPAWN_TARGET'; target: GameTarget }
+  | { type: 'SPAWN_PROJECTILE'; projectile: EnemyProjectile }
   | {
       type: 'TYPE_CORRECT'
-      targetId: string
+      projectileId: string
       typedLength: number
-      matchState: RomajiMatchState
+      matchState: EnemyProjectile['matchState']
     }
   | { type: 'TYPE_MISS' }
   | { type: 'CLEAR_MISS_FEEDBACK' }
   | {
-      type: 'DESTROY_TARGET'
-      targetId: string
+      type: 'RESOLVE_PROJECTILE'
+      projectileId: string
+      action: InterceptAction
       scoreGain: number
       heal: number
-      shouldAdvanceStage: boolean
     }
-  | { type: 'REMOVE_TARGET'; targetId: string }
-  | { type: 'TARGET_REACHED_BOTTOM'; targetId: string; damage: number }
-  | { type: 'CLEAR_STAGE_UP_FLASH' }
+  | { type: 'REMOVE_PROJECTILE'; projectileId: string }
+  | {
+      type: 'PROJECTILE_HIT_PLAYER'
+      projectileId: string
+      damage: number
+      invulnerableUntilMs: number
+    }
+  | { type: 'SET_PLAYER_ACTION'; action: PlayerAction }
   | { type: 'END_GAME'; reason: GameEndReason }
   | { type: 'PAUSE_GAME'; atMs: number }
   | { type: 'RESUME_GAME'; atMs: number }

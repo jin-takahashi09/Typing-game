@@ -1,21 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { getDifficultyConfig } from '../config/difficultyConfig'
-import {
-  canSpawnTarget,
-  createTarget,
-  getSpawnIntervalMs,
-} from '../features/game/targetSpawner'
+import { canSpawnMore } from '../features/game/projectileSpawner'
 import { selectTypingProblem } from './selectTypingProblem'
 import {
   findLockCandidates,
-  findMostDangerousTargetId,
+  findMostDangerousProjectileId,
+  isTypingKey,
 } from '../features/game/gameLogic'
-import type { GameTarget } from '../types/game'
+import type { EnemyProjectile } from '../types/projectile'
 import { createRomajiMatchState } from './romajiMatcher'
 
-function makeTarget(overrides: Partial<GameTarget> = {}): GameTarget {
-  const matchState = createRomajiMatchState()
-
+function makeProjectile(
+  overrides: Partial<EnemyProjectile> = {},
+): EnemyProjectile {
   return {
     id: 'a',
     problemId: '1',
@@ -23,27 +20,30 @@ function makeTarget(overrides: Partial<GameTarget> = {}): GameTarget {
     reading: 'ねこ',
     displayRomaji: 'neko',
     romajiPatterns: ['neko'],
-    matchState,
+    matchState: createRomajiMatchState(),
     typedLength: 0,
-    xPercent: 20,
-    yPosition: 10,
-    speed: 1,
-    state: 'falling',
+    spawnX: 50,
+    spawnY: -6,
+    velocityX: 0,
+    velocityY: 1,
+    speed: 0.05,
+    trajectory: 'straight',
+    size: 'normal',
+    damage: 10,
+    spawnTimeMs: 0,
+    flightDurationMs: 4000,
+    estimatedImpactTimeMs: 4000,
+    state: 'incoming',
+    resolveAction: null,
     baseScore: 10,
     ...overrides,
   }
 }
 
-describe('targetSpawner and selection', () => {
-  it('does not allow spawning beyond max active targets', () => {
-    expect(canSpawnTarget(2, 3)).toBe(true)
-    expect(canSpawnTarget(3, 3)).toBe(false)
-  })
-
-  it('keeps spawn interval above the configured minimum', () => {
-    const config = getDifficultyConfig('master')
-    const interval = getSpawnIntervalMs(config, 50)
-    expect(interval).toBe(config.minSpawnIntervalMs)
+describe('projectile spawn limits and problem selection', () => {
+  it('does not allow spawning beyond max active projectiles', () => {
+    expect(canSpawnMore(2, 3)).toBe(true)
+    expect(canSpawnMore(3, 3)).toBe(false)
   })
 
   it('selects problems only for the requested difficulty', () => {
@@ -59,51 +59,44 @@ describe('targetSpawner and selection', () => {
       expect(problem.id).not.toBe('tr-neko')
     }
   })
-
-  it('creates targets within horizontal padding', () => {
-    const config = getDifficultyConfig('ninja')
-    const problem = selectTypingProblem({
-      difficulty: 'ninja',
-      config,
-      random: () => 0.1,
-    })
-    const target = createTarget({
-      problem,
-      speed: 1,
-      existingXPercents: [20, 50, 80],
-      random: () => 0.5,
-      idFactory: () => 'fixed',
-    })
-    expect(target.xPercent).toBeGreaterThanOrEqual(8)
-    expect(target.xPercent).toBeLessThanOrEqual(92)
-    expect(target.displayRomaji).toBe(problem.romajiPatterns[0]?.toLowerCase())
-  })
 })
 
 describe('lock-on danger selection', () => {
-  const targets: GameTarget[] = [
-    makeTarget({ id: 'a', displayText: 'ねこ', displayRomaji: 'neko', romajiPatterns: ['neko'] }),
-    makeTarget({
+  const projectiles: EnemyProjectile[] = [
+    makeProjectile({
+      id: 'a',
+      displayText: 'ねこ',
+      displayRomaji: 'neko',
+      romajiPatterns: ['neko'],
+      estimatedImpactTimeMs: 5000,
+    }),
+    makeProjectile({
       id: 'b',
       problemId: '2',
       displayText: 'なみ',
       reading: 'なみ',
       displayRomaji: 'nami',
       romajiPatterns: ['nami'],
-      xPercent: 60,
+      estimatedImpactTimeMs: 2500,
+      damage: 12,
     }),
   ]
 
-  it('picks the lowest matching target using targetsRef y values', () => {
-    const candidates = findLockCandidates(targets, 'n')
+  it('picks the earliest ETA matching projectile', () => {
+    const candidates = findLockCandidates(projectiles, 'n')
     expect(candidates).toHaveLength(2)
-    const chosen = findMostDangerousTargetId(
-      candidates,
-      new Map([
-        ['a', 40],
-        ['b', 120],
-      ]),
-    )
-    expect(chosen).toBe('b')
+    expect(findMostDangerousProjectileId(candidates)).toBe('b')
+  })
+})
+
+describe('keyboard typing keys', () => {
+  it('accepts letters and hyphen, rejects space and arrows as typing keys', () => {
+    expect(isTypingKey('a')).toBe(true)
+    expect(isTypingKey('-')).toBe(true)
+    expect(isTypingKey(' ')).toBe(false)
+    expect(isTypingKey('ArrowUp')).toBe(false)
+    expect(isTypingKey('ArrowDown')).toBe(false)
+    expect(isTypingKey('w')).toBe(true)
+    expect(isTypingKey('s')).toBe(true)
   })
 })

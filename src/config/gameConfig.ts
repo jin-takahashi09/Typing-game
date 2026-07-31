@@ -10,7 +10,9 @@ export const gameConfig = {
   /** rAF の異常に大きな delta を抑える上限（ms） */
   maxDeltaMs: 50,
   /** 撃破演出後にターゲットを削除するまでの猶予（ms） */
-  destroyRemoveDelayMs: 320,
+  destroyRemoveDelayMs: 420,
+  /** 被弾後の無敵時間（ms） */
+  invulnerableMs: 700,
   /** ミスフィードバック表示時間（ms） */
   missFeedbackMs: 180,
   /** コンボスコア倍率の上限 */

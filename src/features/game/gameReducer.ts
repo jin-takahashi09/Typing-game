@@ -1,5 +1,5 @@
 import type { DifficultyId } from '../../types/app'
-import type { GameAction, GameState, GameTarget } from '../../types/game'
+import type { GameAction, GameState } from '../../types/game'
 import { gameConfig } from '../../config/gameConfig'
 import { clampDefense } from '../../utils/calculateScore'
 
@@ -14,11 +14,13 @@ export function createInitialGameState(
     combo: 0,
     maxCombo: 0,
     defense: maxDefense,
-    stage: 1,
     destroyedTargets: 0,
-    activeTargets: [],
-    lockedTargetId: null,
+    failedTargets: 0,
+    activeProjectiles: [],
+    lockedProjectileId: null,
     lastProblemId: null,
+    lastInterceptAction: null,
+    playerAction: 'idle',
     typedCount: 0,
     correctChars: 0,
     missCount: 0,
@@ -26,19 +28,9 @@ export function createInitialGameState(
     pausedTotalMs: 0,
     pausedAtMs: null,
     showMissFeedback: false,
-    showStageUpFlash: false,
     endReason: null,
+    invulnerableUntilMs: 0,
   }
-}
-
-function mapTarget(
-  targets: GameTarget[],
-  targetId: string,
-  updater: (target: GameTarget) => GameTarget,
-): GameTarget[] {
-  return targets.map((target) =>
-    target.id === targetId ? updater(target) : target,
-  )
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
@@ -51,16 +43,23 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         gameStartedAtMs: action.startedAtMs,
       }
 
-    case 'SPAWN_TARGET':
+    case 'SPAWN_PROJECTILE':
       return {
         ...state,
-        activeTargets: [...state.activeTargets, action.target],
-        lastProblemId: action.target.problemId,
+        activeProjectiles: [...state.activeProjectiles, action.projectile],
+        lastProblemId: action.projectile.problemId,
       }
 
     case 'TYPE_CORRECT': {
-      const target = state.activeTargets.find((item) => item.id === action.targetId)
-      if (!target || target.state === 'destroyed') {
+      const projectile = state.activeProjectiles.find(
+        (item) => item.id === action.projectileId,
+      )
+      if (
+        !projectile ||
+        projectile.state === 'destroyed' ||
+        projectile.state === 'hit' ||
+        projectile.state === 'resolving'
+      ) {
         return state
       }
 
@@ -68,14 +67,18 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         typedCount: state.typedCount + 1,
         correctChars: state.correctChars + 1,
-        lockedTargetId: action.targetId,
+        lockedProjectileId: action.projectileId,
         showMissFeedback: false,
-        activeTargets: mapTarget(state.activeTargets, action.targetId, (item) => ({
-          ...item,
-          typedLength: action.typedLength,
-          matchState: action.matchState,
-          state: 'locked',
-        })),
+        activeProjectiles: state.activeProjectiles.map((item) =>
+          item.id === action.projectileId
+            ? {
+                ...item,
+                typedLength: action.typedLength,
+                matchState: action.matchState,
+                state: 'targeted' as const,
+              }
+            : item,
+        ),
       }
     }
 
@@ -94,13 +97,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         showMissFeedback: false,
       }
 
-    case 'DESTROY_TARGET': {
+    case 'RESOLVE_PROJECTILE': {
       const nextCombo = state.combo + 1
       const nextDestroyed = state.destroyedTargets + 1
       const nextDefense = clampDefense(state.defense + action.heal)
       const nextScore = state.score + action.scoreGain
 
-      // 撃破直後に入力対象から外す（演出完了待ちで残さない）
       return {
         ...state,
         score: nextScore,
@@ -108,54 +110,65 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         maxCombo: Math.max(state.maxCombo, nextCombo),
         defense: nextDefense,
         destroyedTargets: nextDestroyed,
-        lockedTargetId: null,
-        showStageUpFlash: action.shouldAdvanceStage,
-        stage: action.shouldAdvanceStage ? state.stage + 1 : state.stage,
-        activeTargets: state.activeTargets.filter(
-          (target) => target.id !== action.targetId,
+        lockedProjectileId: null,
+        lastInterceptAction: action.action,
+        activeProjectiles: state.activeProjectiles.map((item) =>
+          item.id === action.projectileId
+            ? {
+                ...item,
+                state: 'resolving' as const,
+                resolveAction: action.action,
+                typedLength: item.displayRomaji.length,
+                matchState: {
+                  ...item.matchState,
+                  confirmedLength: item.displayRomaji.length,
+                  isComplete: true,
+                  activePaths: [],
+                },
+              }
+            : item,
         ),
       }
     }
 
-    case 'REMOVE_TARGET':
+    case 'REMOVE_PROJECTILE':
       return {
         ...state,
-        activeTargets: state.activeTargets.filter(
-          (target) => target.id !== action.targetId,
+        activeProjectiles: state.activeProjectiles.filter(
+          (item) => item.id !== action.projectileId,
         ),
-        lockedTargetId:
-          state.lockedTargetId === action.targetId ? null : state.lockedTargetId,
+        lockedProjectileId:
+          state.lockedProjectileId === action.projectileId
+            ? null
+            : state.lockedProjectileId,
       }
 
-    case 'TARGET_REACHED_BOTTOM': {
+    case 'PROJECTILE_HIT_PLAYER': {
       const nextDefense = clampDefense(state.defense - action.damage)
-      const nextState: GameState = {
-        ...state,
-        defense: nextDefense,
-        combo: 0,
-        lockedTargetId:
-          state.lockedTargetId === action.targetId ? null : state.lockedTargetId,
-        activeTargets: state.activeTargets.filter(
-          (target) => target.id !== action.targetId,
-        ),
-      }
-
-      if (nextDefense <= 0) {
-        return {
-          ...nextState,
-          defense: 0,
-          status: 'gameover',
-          endReason: 'defense',
-        }
-      }
-
-      return nextState
-    }
-
-    case 'CLEAR_STAGE_UP_FLASH':
+      // HP 0 でもゲーム終了しない（時間切れまで続行）
       return {
         ...state,
-        showStageUpFlash: false,
+        defense: Math.max(0, nextDefense),
+        combo: 0,
+        failedTargets: state.failedTargets + 1,
+        playerAction: 'damaged',
+        invulnerableUntilMs: action.invulnerableUntilMs,
+        lockedProjectileId:
+          state.lockedProjectileId === action.projectileId
+            ? null
+            : state.lockedProjectileId,
+        activeProjectiles: state.activeProjectiles.map((item) =>
+          item.id === action.projectileId
+            ? { ...item, state: 'hit' as const }
+            : item,
+        ),
+      }
+    }
+
+    case 'SET_PLAYER_ACTION':
+      return {
+        ...state,
+        playerAction: action.action,
       }
 
     case 'END_GAME':
@@ -165,7 +178,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         status: 'gameover',
-        lockedTargetId: null,
+        lockedProjectileId: null,
         pausedAtMs: null,
         endReason: action.reason,
       }

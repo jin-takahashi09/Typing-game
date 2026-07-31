@@ -90,7 +90,7 @@ async function main() {
     await page.getByRole('radio', { name: /修行生/ }).click()
     await page.getByRole('button', { name: /この難易度で開始/ }).click()
     await page.waitForSelector('[data-testid="game-area"]', { timeout: 8000 })
-    await page.waitForSelector('[data-target-id]', { timeout: 8000 })
+    await page.waitForSelector('[data-testid="enemy-projectile"]', { timeout: 8000, state: 'attached' })
 
     const hudText = await page.locator('body').innerText()
     if (await page.getByTestId('owned-coins').count()) {
@@ -153,7 +153,7 @@ async function main() {
 
     // Type current target (romaji variants covered by unit tests; here smoke destroy)
     const firstLabel = await page.evaluate(() => {
-      const el = document.querySelector('[data-target-id] [aria-label]')
+      const el = document.querySelector('[data-testid="enemy-projectile"] [aria-label]')
       return el?.getAttribute('aria-label') ?? ''
     })
     const romaji = extractRomaji(firstLabel)
@@ -164,9 +164,7 @@ async function main() {
       pass('撃破入力がゲーム画面で動作する')
       // Stage clear may not happen; just ensure no fullscreen coin overlay
       const overlay = await page.evaluate(() => {
-        return document.body.innerText.includes('STAGE') &&
-          document.body.innerText.includes('コイン') &&
-          !!document.querySelector('.stage-clear-gold-burst')
+        return !!document.querySelector('.stage-clear-gold-burst')
       })
       if (!overlay) {
         pass('全画面コイン表示が出ない')

@@ -165,9 +165,9 @@ async function runChecks() {
       STORAGE_KEY,
     )
     for (let attempt = 0; attempt < 40 && !stageClearSeen; attempt += 1) {
-      await page.waitForSelector('[data-target-id]', { timeout: 8000 }).catch(() => null)
+      await page.waitForSelector('[data-testid="enemy-projectile"]', { timeout: 8000, state: 'attached' }).catch(() => null)
       const romaji = await page.evaluate(() => {
-        const el = document.querySelector('[data-target-id] [aria-label]')
+        const el = document.querySelector('[data-testid="enemy-projectile"] [aria-label]')
         if (!el) return null
         const label = el.getAttribute('aria-label') || ''
         const parts = label.trim().split(/\s+/)
@@ -275,28 +275,33 @@ async function runChecks() {
       fail('reload: economy persists', JSON.stringify(economy))
     }
 
-    // Stage clear + result coins: seed high progress isn't easy in E2E without hacking.
-    // Use trainee and wait for stage up is slow (8 clears). Instead verify result coin UI
-    // by injecting storage then navigating isn't possible without App state.
-    // Force game over quickly on master and check coin section exists.
+    // Force time-up and check coin summary on result
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: '修行を始める' }).click()
     await page.getByRole('radio', { name: /忍頭/ }).click()
     await page.getByRole('button', { name: 'この難易度で開始' }).click()
-    for (let i = 0; i < 150; i += 1) {
-      await delay(1000)
-      const text = await page.locator('body').innerText()
-      if (text.includes('DEFENSE FAILED')) {
-        if (text.includes('ステージクリア報酬') && text.includes('成績ボーナス') && text.includes('今回の合計')) {
-          pass('result: coin summary visible')
-        } else {
-          fail('result: coin summary visible', text.slice(0, 300))
-        }
-        break
+    await page.waitForSelector('[data-testid="game-area"]', { timeout: 8000 })
+    await page.evaluate(() => {
+      window.__SHINOBI_KEYS_TEST__ = {
+        ...(window.__SHINOBI_KEYS_TEST__ ?? {}),
+        forceEndGame: true,
       }
-      if (i === 149) {
-        fail('result: coin summary visible', 'timeout')
-      }
+    })
+    await page.waitForFunction(
+      () => document.body.innerText.includes('TIME UP'),
+      null,
+      { timeout: 8000 },
+    )
+    const text = await page.locator('body').innerText()
+    if (
+      text.includes('TIME UP') &&
+      text.includes('撃破ボーナス') &&
+      text.includes('成績ボーナス') &&
+      text.includes('今回の合計')
+    ) {
+      pass('result: coin summary visible')
+    } else {
+      fail('result: coin summary visible', text.slice(0, 300))
     }
 
     if (consoleErrors.length === 0) {

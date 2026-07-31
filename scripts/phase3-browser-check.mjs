@@ -20,18 +20,28 @@ function fail(name, detail) {
 }
 
 async function waitForTarget(page) {
-  await page.waitForSelector('[data-target-id]', { timeout: 8000 })
+  await page.waitForSelector('[data-testid="enemy-projectile"]', { timeout: 8000, state: 'attached' })
 }
 
 async function getTargets(page) {
   return page.evaluate(() => {
-    return Array.from(document.querySelectorAll('[data-target-id]')).map((el) => {
+    const bannerJa =
+      document.querySelector('[data-testid="problem-banner"] [data-testid="enemy-ja"]')
+        ?.textContent ?? ''
+    const bannerRo =
+      document.querySelector('[data-testid="problem-banner"] [data-testid="enemy-romaji"]')
+        ?.textContent ?? ''
+    return Array.from(document.querySelectorAll('[data-testid="enemy-projectile"]')).map((el) => {
       const label = el.querySelector('[aria-label]')?.getAttribute('aria-label') ?? ''
-      const japanese = el.querySelector('.text-\\[var\\(--color-text-soft\\)\\]')?.textContent ?? ''
       const parts = label.trim().split(/\s+/)
-      const romaji = parts[parts.length - 1] ?? ''
+      const romaji =
+        [...parts].reverse().find((token) => /^[a-zA-Z-]+$/.test(token)) ??
+        bannerRo.trim() ??
+        parts[parts.length - 1] ??
+        ''
+      const japanese = bannerJa || parts.slice(0, -1).join(' ')
       return {
-        id: el.getAttribute('data-target-id'),
+        id: el.getAttribute('data-projectile-id'),
         label,
         japanese,
         romaji,
@@ -135,7 +145,7 @@ async function runChecks() {
 
     if (sinobiTyped) {
       const hasDestroyed = await page.evaluate(() => {
-        return document.querySelector('.target-destroyed') !== null
+        return document.querySelector('.projectile-destroyed') !== null
       })
       if (hasDestroyed) pass('typing: alternate romaji sinobi accepted')
       else fail('typing: alternate romaji sinobi accepted', 'no destroy animation')
@@ -145,23 +155,26 @@ async function runChecks() {
 
     await startDifficulty(page, '忍頭')
     await waitForTarget(page)
-
-    let onResult = false
-    for (let i = 0; i < 60; i += 1) {
-      await delay(1000)
-      const text = await page.locator('body').innerText()
-      if (text.includes('DEFENSE FAILED')) {
-        onResult = true
-        if (/play time/i.test(text) && /accuracy/i.test(text) && /wpm/i.test(text)) {
-          pass('result: shows phase 3 stats')
-        } else {
-          fail('result: shows phase 3 stats', text.slice(0, 500))
-        }
-        break
+    await page.evaluate(() => {
+      window.__SHINOBI_KEYS_TEST__ = {
+        ...(window.__SHINOBI_KEYS_TEST__ ?? {}),
+        forceEndGame: true,
       }
-    }
-    if (!onResult) {
-      fail('result: shows phase 3 stats', 'game did not end in time')
+    })
+    await page.waitForFunction(
+      () => document.body.innerText.includes('TIME UP'),
+      null,
+      { timeout: 8000 },
+    )
+    const text = await page.locator('body').innerText()
+    if (
+      text.includes('TIME UP') &&
+      (/撃破数/.test(text) || /スコア/.test(text)) &&
+      (/WPM/i.test(text) || /成功率/.test(text))
+    ) {
+      pass('result: shows phase 3 stats')
+    } else {
+      fail('result: shows phase 3 stats', text.slice(0, 500))
     }
   } finally {
     await browser.close()

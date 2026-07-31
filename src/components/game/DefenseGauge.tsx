@@ -4,39 +4,36 @@ interface DefenseGaugeProps {
 }
 
 export function DefenseGauge({ defense, maxDefense }: DefenseGaugeProps) {
-  const safeDefense = Math.max(0, defense)
-  const ratio = maxDefense <= 0 ? 0 : (safeDefense / maxDefense) * 100
-  const barColor =
-    safeDefense < maxDefense * 0.3
-      ? 'bg-red-600 animate-pulse'
-      : safeDefense < maxDefense * 0.6
-        ? 'bg-orange-500'
-        : 'bg-green-500'
+  const ratio = maxDefense > 0 ? Math.max(0, Math.min(1, defense / maxDefense)) : 0
+  const percent = Math.round(ratio * 100)
 
   return (
-    <div className="pointer-events-none absolute right-2 top-[7.5rem] z-30 flex w-36 flex-col items-end gap-1 sm:right-3 sm:top-28 sm:w-44 md:right-4 md:w-48">
-      <div className="flex w-full items-baseline justify-between gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-red-300">
+    <div
+      className="pointer-events-none absolute right-2 top-14 z-30 w-[7.5rem] sm:right-3 sm:top-16 sm:w-36 md:right-4 md:top-[4.5rem]"
+      data-testid="defense-gauge"
+    >
+      <div className="mb-0.5 flex items-baseline justify-between gap-1">
+        <span className="text-[0.55rem] font-bold uppercase tracking-wider text-[var(--color-text-muted)] sm:text-[0.6rem]">
           HP
         </span>
         <span
-          className="font-display text-xs text-[var(--color-text-soft)] sm:text-sm"
+          className="font-display text-[0.65rem] text-white sm:text-xs"
           data-testid="hp-value"
         >
-          {safeDefense} / {maxDefense}
+          {defense} / {maxDefense}
         </span>
       </div>
       <div
-        className="relative h-5 w-full overflow-hidden rounded-sm border-2 border-slate-700 bg-red-950 sm:h-6"
+        className="h-1.5 overflow-hidden rounded-full border border-[var(--color-border-blue)] bg-black/50 sm:h-2"
         role="meter"
-        aria-label="HP"
         aria-valuemin={0}
         aria-valuemax={maxDefense}
-        aria-valuenow={safeDefense}
+        aria-valuenow={defense}
+        aria-label="HP"
       >
         <div
-          className={`absolute top-0 left-0 h-full transition-all duration-200 ${barColor}`}
-          style={{ width: `${ratio}%` }}
+          className="h-full rounded-full bg-[var(--color-accent-green)] transition-[width] duration-200"
+          style={{ width: `${percent}%` }}
         />
       </div>
     </div>

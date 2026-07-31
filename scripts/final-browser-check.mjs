@@ -44,13 +44,29 @@ async function startDifficulty(page, label) {
   await page.waitForSelector('[aria-label="タイピングゲームエリア"]')
 }
 
-async function waitForGameOver(page, maxSeconds = 150) {
-  for (let i = 0; i < maxSeconds; i += 1) {
-    await delay(1000)
+async function waitForGameOver(page, maxHits = 25) {
+  await page.evaluate(() => {
+    window.__SHINOBI_KEYS_TEST__ = {
+      ...(window.__SHINOBI_KEYS_TEST__ ?? {}),
+      forceEndGame: true,
+    }
+  })
+  for (let i = 0; i < Math.max(8, Math.min(maxHits, 20)); i += 1) {
+    await delay(300)
     const text = await page.locator('body').innerText()
-    if (text.includes('DEFENSE FAILED') || text.includes('ゲームオーバー') || text.includes('もう一度')) {
+    if (
+      text.includes('TIME UP') ||
+      text.includes('同じ難易度でもう一度') ||
+      text.includes('DEFENSE FAILED') ||
+      text.includes('ゲームオーバー')
+    ) {
       return text
     }
+    await page.evaluate(() => {
+      if (window.__SHINOBI_KEYS_TEST__) {
+        window.__SHINOBI_KEYS_TEST__.forceEndGame = true
+      }
+    })
   }
   return null
 }
@@ -155,7 +171,7 @@ async function runChecks() {
     } else {
       fail('nav: title -> settings', 'missing volume')
     }
-    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
+    await page.getByTestId('back-button').click()
 
     await page.getByRole('button', { name: '遊び方' }).click()
     if ((await page.locator('body').innerText()).includes('ローマ字')) {
@@ -163,7 +179,7 @@ async function runChecks() {
     } else {
       fail('nav: title -> howto', 'missing howto')
     }
-    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
+    await page.getByTestId('back-button').click()
 
     await page.getByRole('button', { name: 'プレイ記録' }).click()
     if ((await page.locator('body').innerText()).includes('プレイ記録')) {
@@ -171,15 +187,15 @@ async function runChecks() {
     } else {
       fail('nav: title -> records', 'missing records')
     }
-    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
+    await page.getByTestId('back-button').click()
 
     // --- Difficulty + typing destroy ---
     await startDifficulty(page, '修行生')
     pass('game: start trainee')
 
-    await page.waitForSelector('[data-target-id]', { timeout: 10000 })
+    await page.waitForSelector('[data-testid="enemy-projectile"]', { timeout: 10000, state: 'attached' })
     const romaji = await page.evaluate(() => {
-      const el = document.querySelector('[data-target-id] [aria-label]')
+      const el = document.querySelector('[data-testid="enemy-projectile"] [aria-label]')
       if (!el) return null
       const label = el.getAttribute('aria-label') || ''
       const parts = label.trim().split(/\s+/)
@@ -190,7 +206,7 @@ async function runChecks() {
       await page.keyboard.type(romaji, { delay: 25 })
       await delay(600)
       const destroyedOrGone = await page.evaluate((word) => {
-        const labels = Array.from(document.querySelectorAll('[data-target-id] [aria-label]'))
+        const labels = Array.from(document.querySelectorAll('[data-testid="enemy-projectile"] [aria-label]'))
         return !labels.some((el) => (el.getAttribute('aria-label') || '').endsWith(word))
       }, romaji)
       if (destroyedOrGone) {
@@ -226,7 +242,7 @@ async function runChecks() {
     }
 
     await page.getByRole('button', { name: '一時停止' }).click()
-    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
+    await page.getByRole('button', { name: 'タイトルへ戻る' }).click()
 
     // --- Game over + save (master for speed) ---
     await startDifficulty(page, '忍頭')
@@ -313,7 +329,7 @@ async function runChecks() {
       fail('clear: records gone, settings kept', JSON.stringify(afterClear))
     }
 
-    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
+    await page.getByTestId('back-button').click()
     await page.reload({ waitUntil: 'domcontentloaded' })
     const afterReload = await page.evaluate((key) => {
       const raw = localStorage.getItem(key)
@@ -334,7 +350,7 @@ async function runChecks() {
     await page.goto(BASE, { waitUntil: 'domcontentloaded' })
     const titleOk = await page.getByRole('button', { name: '修行を始める' }).isVisible()
     await page.getByRole('button', { name: '設定' }).click()
-    const settingsOk = await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).isVisible()
+    const settingsOk = await page.getByTestId('back-button').isVisible()
     const scrollX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2)
     if (titleOk && settingsOk && !scrollX) {
       pass('mobile: 320px main actions usable')

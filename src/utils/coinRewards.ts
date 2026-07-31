@@ -1,4 +1,8 @@
-/** STAGE N クリア時のコイン。例: 1→10, 2→15, 3→20 */
+/**
+ * 撃破マイルストーン到達時のコイン。
+ * 引数名 `clearedStage` / 関数名はセーブ・呼出互換のため維持（中身はマイルストーン番号）。
+ * 例: 1→10, 2→15, 3→20
+ */
 export function calcStageClearCoins(clearedStage: number): number {
   if (!Number.isFinite(clearedStage) || clearedStage < 1) {
     return 0
@@ -15,12 +19,15 @@ export function calcResultBonusCoins(score: number): number {
 }
 
 export interface StageCoinAward {
+  /** 互換用: マイルストーン番号（旧ステージ番号） */
   stage: number
   coins: number
 }
 
 export interface PlayCoinTracker {
+  /** 互換用: 付与済みマイルストーン番号集合 */
   rewardedStages: ReadonlySet<number>
+  /** 互換用フィールド名。UI では「撃破ボーナス」 */
   stageAwards: readonly StageCoinAward[]
   resultBonusAwarded: boolean
   resultBonusCoins: number

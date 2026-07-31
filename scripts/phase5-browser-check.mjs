@@ -95,7 +95,7 @@ async function runChecks() {
     await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click()
 
     await startMaster(page)
-    await page.waitForSelector('[data-target-id]', { timeout: 8000 })
+    await page.waitForSelector('[data-testid="enemy-projectile"]', { timeout: 8000, state: 'attached' })
     await delay(200)
     await page.getByRole('button', { name: '一時停止' }).click()
     if ((await page.locator('body').innerText()).includes('一時停止')) {
@@ -104,29 +104,25 @@ async function runChecks() {
       fail('pause: overlay opens', 'no overlay text')
     }
 
-    const yBefore = await page.evaluate(() => {
-      const el = document.querySelector('[data-target-id]')
+    const xBefore = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="enemy-projectile"]')
       if (!el) return null
-      const datasetY = el.dataset.fallY
-      if (datasetY) return Number(datasetY)
-      const transform = el.style.transform || ''
-      const match = /translate3d\(-50%,\s*([-\d.]+)px/.exec(transform)
-      return match ? Number(match[1]) : null
+      return Number(el.dataset.x ?? NaN)
     })
     await delay(800)
-    const yAfter = await page.evaluate(() => {
-      const el = document.querySelector('[data-target-id]')
+    const xAfter = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="enemy-projectile"]')
       if (!el) return null
-      const datasetY = el.dataset.fallY
-      if (datasetY) return Number(datasetY)
-      const transform = el.style.transform || ''
-      const match = /translate3d\(-50%,\s*([-\d.]+)px/.exec(transform)
-      return match ? Number(match[1]) : null
+      return Number(el.dataset.x ?? NaN)
     })
-    if (yBefore !== null && yAfter !== null && yBefore === yAfter) {
-      pass('pause: targets do not fall')
+    if (
+      Number.isFinite(xBefore) &&
+      Number.isFinite(xAfter) &&
+      xBefore === xAfter
+    ) {
+      pass('pause: projectiles do not move')
     } else {
-      fail('pause: targets do not fall', JSON.stringify({ yBefore, yAfter }))
+      fail('pause: projectiles do not move', JSON.stringify({ xBefore, xAfter }))
     }
 
     await page.keyboard.press('Escape')

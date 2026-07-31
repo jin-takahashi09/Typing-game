@@ -136,7 +136,7 @@ export const characters: readonly CharacterDefinition[] = [
     ability: {
       type: 'stageCoinMultiplier',
       name: '黄金の褒賞',
-      description: 'ステージクリアで獲得するコインが20%増加する。',
+      description: '撃破ボーナスで獲得するコインが20%増加する。',
       value: 1.2,
     },
     visual: {
@@ -191,7 +191,7 @@ export function formatAbilityShort(ability: CharacterAbility): string {
     case 'damageReduction':
       return `${ability.name}：被ダメージ -${Math.round(ability.value * 100)}%`
     case 'stageCoinMultiplier':
-      return `${ability.name}：ステージコイン +${Math.round((ability.value - 1) * 100)}%`
+      return `${ability.name}：撃破ボーナス +${Math.round((ability.value - 1) * 100)}%`
     default: {
       const _exhaustive: never = ability
       return _exhaustive

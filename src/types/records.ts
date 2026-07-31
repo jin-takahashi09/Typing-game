@@ -22,6 +22,7 @@ export interface BestRecord {
   wpm: number
   accuracy: number
   maxCombo: number
+  /** セーブ互換用。ステージ制廃止後はマイルストーン相当の数値を格納 */
   stage: number
   destroyedTargets: number
   elapsedMs: number
@@ -34,6 +35,7 @@ export interface PlayRecord {
   playedAt: string
   difficulty: DifficultyId
   score: number
+  /** セーブ互換用。ステージ制廃止後はマイルストーン相当の数値を格納 */
   stage: number
   destroyedTargets: number
   elapsedMs: number

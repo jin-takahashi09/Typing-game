@@ -197,9 +197,9 @@ async function runChecks() {
     }
 
     // Destroy one target — score ability may show float
-    await page.waitForSelector('[data-target-id]', { timeout: 8000 })
+    await page.waitForSelector('[data-testid="enemy-projectile"]', { timeout: 8000, state: 'attached' })
     const romaji = await page.evaluate(() => {
-      const el = document.querySelector('[data-target-id] [aria-label]')
+      const el = document.querySelector('[data-testid="enemy-projectile"] [aria-label]')
       if (!el) return null
       const parts = (el.getAttribute('aria-label') || '').trim().split(/\s+/)
       return parts[parts.length - 1] || null
@@ -241,9 +241,9 @@ async function runChecks() {
       STORAGE_KEY,
     )
     for (let attempt = 0; attempt < 40 && !goldStageOk; attempt += 1) {
-      await page.waitForSelector('[data-target-id]', { timeout: 8000 }).catch(() => null)
+      await page.waitForSelector('[data-testid="enemy-projectile"]', { timeout: 8000, state: 'attached' }).catch(() => null)
       const word = await page.evaluate(() => {
-        const el = document.querySelector('[data-target-id] [aria-label]')
+        const el = document.querySelector('[data-testid="enemy-projectile"] [aria-label]')
         if (!el) return null
         const parts = (el.getAttribute('aria-label') || '').trim().split(/\s+/)
         return parts[parts.length - 1] || null

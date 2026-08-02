@@ -53,6 +53,12 @@ export interface PlayRecord {
   endReason?: 'defense' | 'timeout'
   /** そのプレイの制限時間秒（旧データには無い） */
   timeLimitSeconds?: number
+  /** 最大連続ノーミス成功数（任意・旧データには無い） */
+  maxPerfectStreak?: number
+  /** 連続成功で得た追加時間秒（任意） */
+  bonusTimeSeconds?: number
+  /** 連続成功で得たコイン（任意） */
+  streakRewardCoins?: number
 }
 
 export interface PlayComparison {

@@ -437,8 +437,23 @@ async function main() {
     else fail('pause中は敵が停止する', JSON.stringify({ t1, t2, y1, y2 }))
     await page.getByRole('button', { name: '再開' }).click()
 
+    // 320px確認はクリーンな1体スポーンで行う（直前の敵が残ると重なり判定が誤る）
+    await restartFresh(page)
     await page.setViewportSize({ width: 320, height: 720 })
-    await delay(300)
+    await delay(200)
+    await forceSpawn(page, {
+      freeze: true,
+      spawnX: 28,
+      yPercent: 52,
+      remainingMs: 9000,
+      forceProblem: {
+        displayText: 'すし',
+        reading: 'すし',
+        romaji: 'sushi',
+      },
+    })
+    await page.waitForSelector('[data-testid="falling-problem-text"]', { timeout: 6000 })
+    await delay(120)
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     )
@@ -447,8 +462,9 @@ async function main() {
     await shot(page, 'game-mobile-320.png')
     const overlap = await page.evaluate(() => {
       const hud = document.querySelector('[data-testid="remaining-time"]')
-      const banner = document.querySelector('[data-testid="problem-banner"]')
-      const label = banner ?? document.querySelector('[data-testid="enemy-label"]')
+      const label =
+        document.querySelector('[data-testid="falling-problem-text"]') ||
+        document.querySelector('[data-testid="enemy-ja"]')
       if (!hud || !label) return false
       const a = hud.getBoundingClientRect()
       const b = label.getBoundingClientRect()

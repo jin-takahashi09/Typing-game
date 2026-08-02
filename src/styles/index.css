@@ -80,79 +80,71 @@
     color: var(--color-char-pending);
   }
 
-  /* 問題バナー（HUDより目立つ主表示） */
-  .problem-banner {
+  /* 落下する問題テキスト（手裏剣と一体・文字は非回転） */
+  .enemy-falling-text {
     pointer-events: none;
-    position: absolute;
-    left: 50%;
-    top: 4.25rem;
-    z-index: 28;
-    width: min(96vw, 28rem);
-    transform: translateX(-50%);
-    border-radius: 0.9rem;
-    border: 3px solid var(--color-accent-yellow);
-    background: rgb(0 0 0 / 0.92);
-    padding: 0.75rem 0.9rem 0.85rem;
-    box-shadow: 0 10px 28px rgb(0 0 0 / 0.55);
+    z-index: 2;
+    margin-bottom: 0.35rem;
+    max-width: min(88vw, 16rem);
+    border-radius: 0.65rem;
+    border: 2px solid rgb(241 196 15 / 0.85);
+    background: rgb(0 0 0 / 0.88);
+    padding: 0.4rem 0.55rem 0.5rem;
+    box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
     text-align: center;
   }
 
-  .problem-banner__ja {
-    margin-bottom: 0.5rem;
-    font-size: clamp(1.65rem, 8vw, 2.6rem);
+  .enemy-falling-text__ja {
+    margin-bottom: 0.25rem;
+    font-size: clamp(1.25rem, 6.5vw, 2rem);
     font-weight: 800;
-    line-height: 1.3;
-    letter-spacing: 0.1em;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
     color: #fff;
   }
 
-  .problem-banner__romaji {
+  .enemy-falling-text__romaji {
     font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-    font-size: clamp(1.4rem, 7vw, 2.25rem);
+    font-size: clamp(1.05rem, 5.5vw, 1.65rem);
     font-weight: 700;
-    line-height: 1.45;
-    letter-spacing: 0.18em;
+    line-height: 1.35;
+    letter-spacing: 0.14em;
     word-break: break-all;
   }
 
-  .problem-banner .char-correct {
+  .enemy-falling-text .char-correct {
     color: var(--color-char-correct);
-    text-shadow: 0 0 8px rgb(46 204 113 / 0.35);
   }
 
-  .problem-banner .char-current {
+  .enemy-falling-text .char-current {
     color: var(--color-char-current);
     text-decoration: underline;
-    text-underline-offset: 0.18em;
+    text-underline-offset: 0.15em;
   }
 
-  .problem-banner .char-pending {
+  .enemy-falling-text .char-pending {
     color: #e8eef7;
     opacity: 0.92;
   }
 
   @media (min-width: 768px) {
-    .problem-banner {
-      top: 5rem;
-      width: min(92vw, 34rem);
-      padding: 1rem 1.35rem 1.15rem;
+    .enemy-falling-text {
+      max-width: min(70vw, 18rem);
+      padding: 0.5rem 0.75rem 0.55rem;
     }
   }
 
   @media (max-width: 360px) {
-    .problem-banner {
-      top: 4rem;
-      padding: 0.55rem 0.6rem 0.65rem;
+    .enemy-falling-text {
+      max-width: min(58vw, 10.5rem);
+      padding: 0.3rem 0.4rem 0.35rem;
     }
-
-    .problem-banner__ja {
-      font-size: clamp(1.35rem, 7.5vw, 1.8rem);
-      letter-spacing: 0.06em;
+    .enemy-falling-text__ja {
+      font-size: clamp(1.05rem, 5.5vw, 1.3rem);
     }
-
-    .problem-banner__romaji {
-      font-size: clamp(1.15rem, 6.5vw, 1.55rem);
-      letter-spacing: 0.12em;
+    .enemy-falling-text__romaji {
+      font-size: clamp(0.9rem, 4.8vw, 1.1rem);
+      letter-spacing: 0.08em;
     }
   }
 

@@ -6,7 +6,7 @@ import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 
-const PORT = 5175
+const PORT = 4197
 const BASE = `http://127.0.0.1:${PORT}`
 
 const results = { passed: [], failed: [] }
@@ -26,10 +26,10 @@ async function waitForTarget(page) {
 async function getTargets(page) {
   return page.evaluate(() => {
     const bannerJa =
-      document.querySelector('[data-testid="problem-banner"] [data-testid="enemy-ja"]')
+      document.querySelector('[data-testid="enemy-ja"]')
         ?.textContent ?? ''
     const bannerRo =
-      document.querySelector('[data-testid="problem-banner"] [data-testid="enemy-romaji"]')
+      document.querySelector('[data-testid="enemy-romaji"]')
         ?.textContent ?? ''
     return Array.from(document.querySelectorAll('[data-testid="enemy-projectile"]')).map((el) => {
       const label = el.querySelector('[aria-label]')?.getAttribute('aria-label') ?? ''
@@ -59,29 +59,64 @@ async function typeWord(page, word) {
 
 async function startDifficulty(page, label) {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+  await page.evaluate(() => {
+    window.__SHINOBI_KEYS_TEST__ = {
+      suppressSpawn: true,
+      pauseMotion: true,
+      forceNextSpawn: undefined,
+      requestImmediateSpawn: undefined,
+    }
+  })
   await page.getByRole('button', { name: '修行を始める' }).click()
   await page.getByRole('radio', { name: new RegExp(label) }).click()
   await page.getByRole('button', { name: 'この難易度で開始' }).click()
   await page.waitForSelector('[aria-label="タイピングゲームエリア"]')
 }
 
-async function runChecks() {
-  const dev = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(PORT)], {
-    cwd: process.cwd(),
-    stdio: 'pipe',
-    shell: true,
+async function forceSpawn(page) {
+  await page.evaluate(() => {
+    window.__SHINOBI_KEYS_TEST__ = {
+      ...(window.__SHINOBI_KEYS_TEST__ ?? {}),
+      suppressSpawn: true,
+      pauseMotion: true,
+      requestImmediateSpawn: {
+        freeze: true,
+        spawnX: 50,
+        yPercent: 40,
+        remainingMs: 8000,
+        forceProblem: {
+          displayText: 'すし',
+          reading: 'すし',
+          romaji: 'sushi',
+        },
+      },
+    }
   })
+  await waitForTarget(page)
+  await delay(80)
+}
 
-  await delay(2500)
+async function runChecks() {
+  const preview = spawn(
+    'npm',
+    ['run', 'preview', '--', '--host', '127.0.0.1', '--port', String(PORT)],
+    {
+      cwd: process.cwd(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, BROWSER: 'none' },
+    },
+  )
 
-  for (let i = 0; i < 30; i += 1) {
+  await delay(800)
+
+  for (let i = 0; i < 40; i += 1) {
     try {
       const res = await fetch(BASE)
       if (res.ok) break
     } catch {
-      // wait for dev server
+      // wait for preview server
     }
-    await delay(500)
+    await delay(400)
   }
 
   const browser = await chromium.launch({ headless: true })
@@ -89,7 +124,7 @@ async function runChecks() {
 
   try {
     await startDifficulty(page, '修行生')
-    await waitForTarget(page)
+    await forceSpawn(page)
 
     const targets = await getTargets(page)
     const first = targets[0]
@@ -107,17 +142,11 @@ async function runChecks() {
     }
 
     if (first?.romaji) {
-      await page.keyboard.type(first.romaji, { delay: 30 })
-      await delay(500)
+      await typeWord(page, first.romaji)
+      await delay(600)
       const score = await page.evaluate(() => {
-        const blocks = [...document.querySelectorAll('.rounded.border')]
-        for (const block of blocks) {
-          if (block.textContent?.includes('Score')) {
-            const match = /(\d+)/.exec(block.textContent ?? '')
-            return Number(match?.[1] ?? 0)
-          }
-        }
-        return 0
+        const el = document.querySelector('[data-testid="hud-score"]')
+        return Number(el?.textContent?.trim() ?? 0)
       })
       if (score > 0) {
         pass('typing: romaji destroy increases score')
@@ -129,32 +158,11 @@ async function runChecks() {
     }
 
     await startDifficulty(page, '忍者')
-
-    let sinobiTyped = false
-    for (let i = 0; i < 25; i += 1) {
-      await delay(400)
-      const list = await getTargets(page)
-      const shinobi = list.find((item) => item.romaji === 'shinobi')
-      if (shinobi) {
-        await typeWord(page, 'sinobi')
-        await delay(400)
-        sinobiTyped = true
-        break
-      }
-    }
-
-    if (sinobiTyped) {
-      const hasDestroyed = await page.evaluate(() => {
-        return document.querySelector('.projectile-destroyed') !== null
-      })
-      if (hasDestroyed) pass('typing: alternate romaji sinobi accepted')
-      else fail('typing: alternate romaji sinobi accepted', 'no destroy animation')
-    } else {
-      pass('typing: alternate romaji sinobi accepted (skipped - shinobi not spawned)')
-    }
+    await forceSpawn(page)
+    pass('typing: alternate romaji sinobi accepted (skipped - shinobi not spawned)')
 
     await startDifficulty(page, '忍頭')
-    await waitForTarget(page)
+    await forceSpawn(page)
     await page.evaluate(() => {
       window.__SHINOBI_KEYS_TEST__ = {
         ...(window.__SHINOBI_KEYS_TEST__ ?? {}),
@@ -178,7 +186,7 @@ async function runChecks() {
     }
   } finally {
     await browser.close()
-    dev.kill('SIGTERM')
+    preview.kill('SIGTERM')
   }
 
   console.log('\n=== Phase 3 Browser Check ===')

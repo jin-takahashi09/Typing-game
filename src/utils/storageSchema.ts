@@ -137,6 +137,18 @@ function normalizePlayRecord(raw: unknown): PlayRecord | null {
     raw.timeLimitSeconds === undefined
       ? undefined
       : toNonNegativeNumber(raw.timeLimitSeconds)
+  const maxPerfectStreak =
+    raw.maxPerfectStreak === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.maxPerfectStreak)
+  const bonusTimeSeconds =
+    raw.bonusTimeSeconds === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.bonusTimeSeconds)
+  const streakRewardCoins =
+    raw.streakRewardCoins === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.streakRewardCoins)
 
   return {
     id,
@@ -157,6 +169,9 @@ function normalizePlayRecord(raw: unknown): PlayRecord | null {
     ...(abilityBonusCoins !== undefined ? { abilityBonusCoins } : {}),
     ...(endReason !== undefined ? { endReason } : {}),
     ...(timeLimitSeconds !== undefined ? { timeLimitSeconds } : {}),
+    ...(maxPerfectStreak !== undefined ? { maxPerfectStreak } : {}),
+    ...(bonusTimeSeconds !== undefined ? { bonusTimeSeconds } : {}),
+    ...(streakRewardCoins !== undefined ? { streakRewardCoins } : {}),
   }
 }
 

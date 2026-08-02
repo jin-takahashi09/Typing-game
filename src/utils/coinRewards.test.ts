@@ -48,4 +48,14 @@ describe('coinRewards', () => {
     expect(second.coins).toBe(0)
     expect(summarizePlayCoins(tracker).resultBonusCoins).toBe(2)
   })
+
+  it('includes streak reward coins in total without double-counting stage', () => {
+    let tracker = createPlayCoinTracker()
+    tracker = tryAwardStageClear(tracker, 1).tracker
+    const summary = summarizePlayCoins(tracker, 6)
+    expect(summary.stageClearCoins).toBe(10)
+    expect(summary.streakRewardCoins).toBe(6)
+    expect(summary.totalEarned).toBe(16)
+    expect(summarizePlayCoins(tracker).streakRewardCoins).toBe(0)
+  })
 })

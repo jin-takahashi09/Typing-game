@@ -19,7 +19,6 @@ import { DefenseGauge } from '../components/game/DefenseGauge'
 import { NinjaPlayer } from '../components/game/NinjaPlayer'
 import { TrainingGroundBackground } from '../components/game/TrainingGroundBackground'
 import { EnemyProjectileView } from '../components/game/EnemyProjectileView'
-import { ProblemBanner } from '../components/game/ProblemBanner'
 import { AllyShurikenFx } from '../components/game/AllyShurikenFx'
 import { ComboDisplay } from '../components/game/ComboDisplay'
 import { PauseOverlay } from '../components/game/PauseOverlay'
@@ -55,6 +54,8 @@ import {
   formatRemainingTime,
   isTimeUp,
 } from '../utils/remainingTime'
+import { applyPerfectClear } from '../utils/streakRewards'
+import { STREAK_REWARD_CONFIG } from '../config/streakRewardConfig'
 import { processRomajiInput } from '../utils/romajiMatcher'
 import {
   createPlayCoinTracker,
@@ -207,11 +208,31 @@ declare global {
         size?: import('../types/projectile').ProjectileSize
         /** 検証用。本番の寿司打方式では使わない */
         allowMultiple?: boolean
+        forceProblem?: {
+          displayText: string
+          reading: string
+          romaji: string
+        }
       }
       pauseMotion?: boolean
       suppressSpawn?: boolean
       /** 検証用: true で時間切れ終了を即時発火（消費） */
       forceEndGame?: boolean
+      /** 検証用: 次スポーンの問題を強制（消費は requestImmediateSpawn 側） */
+      forceProblem?: {
+        displayText: string
+        reading: string
+        romaji: string
+      }
+      /** 検証用: 連続成功・時間ボーナスの読み取り */
+      getStreakSnapshot?: () => {
+        perfectStreakCount: number
+        maxPerfectStreak: number
+        timeBonusMs: number
+        totalBonusSeconds: number
+        streakRewardCoins: number
+        currentProblemHadMiss: boolean
+      }
     }
   }
 }
@@ -254,6 +275,7 @@ export function GameScreen({
   const [pausedFromBrowserBack, setPausedFromBrowserBack] = useState(false)
   const [coinGainFlash, setCoinGainFlash] = useState<number | null>(null)
   const [goldAbilityFlash, setGoldAbilityFlash] = useState<number | null>(null)
+  const [timeBonusFlash, setTimeBonusFlash] = useState<number | null>(null)
 
   const motionRef = useRef<Map<string, ProjectileMotionState>>(new Map())
   const elementRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -269,6 +291,7 @@ export function GameScreen({
   const abilityBonusScoreRef = useRef(0)
   const abilityBonusCoinsRef = useRef(0)
   const resolvingIdsRef = useRef<Set<string>>(new Set())
+  const streakAwardedEventsRef = useRef<Set<string>>(new Set())
   const areaSizeRef = useRef(areaSize)
   const problemBagRef = useRef<ProblemBag | null>(null)
   if (problemBagRef.current === null) {
@@ -283,6 +306,16 @@ export function GameScreen({
   useEffect(() => {
     stateRef.current = state
     isPlayingRef.current = state.status === 'playing'
+    if (window.__SHINOBI_KEYS_TEST__) {
+      window.__SHINOBI_KEYS_TEST__.getStreakSnapshot = () => ({
+        perfectStreakCount: state.perfectStreakCount,
+        maxPerfectStreak: state.maxPerfectStreak,
+        timeBonusMs: state.timeBonusMs,
+        totalBonusSeconds: state.totalBonusSeconds,
+        streakRewardCoins: state.streakRewardCoins,
+        currentProblemHadMiss: state.currentProblemHadMiss,
+      })
+    }
   }, [state])
 
   useEffect(() => {
@@ -408,6 +441,7 @@ export function GameScreen({
           },
           now,
           config.timeLimitSeconds,
+          current.timeBonusMs,
         )
       ) {
         isPlayingRef.current = false
@@ -417,7 +451,7 @@ export function GameScreen({
     const intervalId = window.setInterval(tick, gameConfig.hudStatsUpdateIntervalMs)
     tick()
     return () => window.clearInterval(intervalId)
-  }, [state.status, state.gameStartedAtMs, config.timeLimitSeconds])
+  }, [state.status, state.gameStartedAtMs, state.timeBonusMs, config.timeLimitSeconds])
 
   useEffect(() => {
     if (state.status === 'gameover' && !endedRef.current) {
@@ -469,9 +503,17 @@ export function GameScreen({
           abilityBonusCoins: abilityBonusCoinsRef.current,
           endReason: state.endReason ?? 'timeout',
           timeLimitSeconds: config.timeLimitSeconds,
+          maxPerfectStreak: state.maxPerfectStreak,
+          bonusTimeSeconds: state.totalBonusSeconds,
+          streakRewardCoins: state.streakRewardCoins,
         },
         playSessionId,
-        summarizePlayCoins(playCoinTrackerRef.current),
+        {
+          ...summarizePlayCoins(
+            playCoinTrackerRef.current,
+            state.streakRewardCoins,
+          ),
+        },
       )
     }
   }, [state, onGameOver, playSessionId, playCharacter.characterId, config.timeLimitSeconds, config.coinMilestoneEvery])
@@ -537,6 +579,11 @@ export function GameScreen({
             yPercent?: number
             freeze?: boolean
             remainingMs?: number
+            forceProblem?: {
+              displayText: string
+              reading: string
+              romaji: string
+            }
           },
           living: EnemyProjectile[],
         ): EnemyProjectile | null => {
@@ -544,7 +591,18 @@ export function GameScreen({
             problemBagRef.current = createProblemBag(difficulty)
           }
           const activeProblemIds = new Set(living.map((p) => p.problemId))
-          const problem = problemBagRef.current.next(activeProblemIds)
+          const forced = opts.forceProblem
+          const problem = forced
+            ? {
+                id: `test-force-${Date.now()}`,
+                displayText: forced.displayText,
+                reading: forced.reading,
+                romajiPatterns: [forced.romaji.toLowerCase()],
+                difficulty,
+                category: 'basic' as const,
+                baseScore: 80,
+              }
+            : problemBagRef.current.next(activeProblemIds)
           const romajiLen = Math.max(
             1,
             ...problem.romajiPatterns.map((p) => p.length),
@@ -614,6 +672,12 @@ export function GameScreen({
           if (!immediate.allowMultiple && living.length > 0) {
             return 0
           }
+          const forceProblem =
+            immediate.forceProblem ??
+            window.__SHINOBI_KEYS_TEST__.forceProblem
+          if (window.__SHINOBI_KEYS_TEST__.forceProblem) {
+            window.__SHINOBI_KEYS_TEST__.forceProblem = undefined
+          }
           const spawned = spawnOne(
             {
               spawnX: immediate.spawnX ?? PLAYER_X_PERCENT,
@@ -623,6 +687,7 @@ export function GameScreen({
               yPercent: immediate.yPercent,
               freeze: immediate.freeze,
               remainingMs: immediate.remainingMs,
+              forceProblem,
             },
             living,
           )
@@ -967,12 +1032,48 @@ export function GameScreen({
           typedLength: matchResult.nextConfirmedLength,
           matchState: matchResult.nextState,
         })
+
+        const hadMiss = stateRef.current.currentProblemHadMiss
+        const streakPayload = hadMiss
+          ? ({ kind: 'skip-miss' } as const)
+          : ({
+              kind: 'apply' as const,
+              eventId: `${projectile.id}-streak`,
+              result: applyPerfectClear({
+                currentCount: stateRef.current.perfectStreakCount,
+                maxCount: STREAK_REWARD_CONFIG.cycleLength,
+                totalBonusSeconds: stateRef.current.totalBonusSeconds,
+                totalRewardCoins: stateRef.current.streakRewardCoins,
+              }),
+            } as const)
+
+        if (streakPayload.kind === 'apply') {
+          const { result, eventId } = streakPayload
+          const alreadyAwarded = streakAwardedEventsRef.current.has(eventId)
+          if (!alreadyAwarded && (result.coinBonus > 0 || result.timeBonusSeconds > 0)) {
+            streakAwardedEventsRef.current.add(eventId)
+            if (result.coinBonus > 0) {
+              onAwardStageCoins(result.coinBonus)
+              setCoinGainFlash(result.coinBonus)
+              schedule(() => setCoinGainFlash(null), 700)
+            }
+            if (result.timeBonusSeconds > 0) {
+              setTimeBonusFlash(result.timeBonusSeconds)
+              schedule(() => setTimeBonusFlash(null), 700)
+            }
+            if (result.reachedMilestone) {
+              getSoundManager().playSfx('stageUp')
+            }
+          }
+        }
+
         dispatch({
           type: 'RESOLVE_PROJECTILE',
           projectileId: projectile.id,
           action,
           scoreGain: applied.finalScore,
           heal: config.killHeal,
+          streak: streakPayload,
         })
 
         schedule(() => {
@@ -996,7 +1097,7 @@ export function GameScreen({
         matchState: matchResult.nextState,
       })
     },
-    [config, schedule, reducedMotion, playCharacter, spawnFromDirector],
+    [config, schedule, reducedMotion, playCharacter, spawnFromDirector, onAwardStageCoins],
   )
 
   const hudStats = useMemo(() => {
@@ -1036,6 +1137,7 @@ export function GameScreen({
       },
       state.status === 'paused' ? (state.pausedAtMs ?? hudNowMs) : hudNowMs,
       config.timeLimitSeconds,
+      state.timeBonusMs,
     )
   }, [
     config.timeLimitSeconds,
@@ -1044,6 +1146,7 @@ export function GameScreen({
     state.pausedAtMs,
     state.pausedTotalMs,
     state.status,
+    state.timeBonusMs,
   ])
 
   useKeyboardInput({
@@ -1091,28 +1194,15 @@ export function GameScreen({
           coins={coins}
           coinGainFlash={coinGainFlash}
           showScoreAbilityHint={showScoreAbilityHint}
+          streakCount={state.perfectStreakCount}
+          streakMax={STREAK_REWARD_CONFIG.cycleLength}
+          timeBonusFlash={timeBonusFlash}
+          reducedMotion={reducedMotion}
           onPause={
             state.status === 'playing' ? () => pauseGame(false) : undefined
           }
         />
         <DefenseGauge defense={state.defense} maxDefense={gameConfig.maxHealth} />
-
-        {(() => {
-          const prompt = state.activeProjectiles.find(
-            (p) => p.state === 'incoming' || p.state === 'targeted',
-          )
-          if (!prompt) return null
-          return (
-            <ProblemBanner
-              projectile={prompt}
-              showMiss={
-                !reducedMotion &&
-                state.showMissFeedback &&
-                state.lockedProjectileId === prompt.id
-              }
-            />
-          )
-        })()}
 
         {goldAbilityFlash !== null && goldAbilityFlash > 0 && (
           <p

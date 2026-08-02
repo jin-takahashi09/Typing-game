@@ -71,8 +71,9 @@ async function forceSpawn(page, opts) {
 async function readRomaji(page) {
   return page.evaluate(() => {
     const el =
-      document.querySelector('[data-testid="problem-banner"] [aria-label]') ||
-      document.querySelector('[data-testid="enemy-projectile"] [aria-label]')
+      document.querySelector('[data-testid="falling-problem-text"] [aria-label]') ||
+      document.querySelector('[data-testid="enemy-projectile"] [aria-label]') ||
+      document.querySelector('[data-testid="enemy-romaji"]')
     const label = el?.getAttribute('aria-label') ?? ''
     const tokens = label.trim().split(/\s+/)
     return (

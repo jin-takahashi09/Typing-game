@@ -22,6 +22,7 @@ function bounceOffsetPx(spawnX: number): { x: number; y: number } {
 export function EnemyProjectileView({
   projectile,
   isLocked,
+  showMiss,
   registerElement,
 }: EnemyProjectileViewProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -33,7 +34,6 @@ export function EnemyProjectileView({
     }
   }, [registerElement, projectile.id])
 
-  // top は React style に載せない（resolve 再描画で spawnY へ戻るのを防ぐ）
   useLayoutEffect(() => {
     const el = rootRef.current
     if (!el) return
@@ -42,6 +42,7 @@ export function EnemyProjectileView({
     }
   }, [projectile.id, projectile.spawnY])
 
+  const chars = projectile.displayRomaji.split('')
   const isResolving =
     projectile.state === 'resolving' || projectile.state === 'destroyed'
   const isEmergency =
@@ -78,13 +79,45 @@ export function EnemyProjectileView({
       data-y={Math.round(projectile.spawnY)}
       data-spawn-x={Math.round(projectile.spawnX)}
     >
-      {/* 文言は ProblemBanner 側。敵本体は手裏剣の見た目のみ */}
-      <span
-        className="sr-only"
-        aria-label={`${projectile.displayText} ${projectile.displayRomaji}`}
+      <div
+        className={[
+          'enemy-falling-text',
+          showMiss && isLocked ? 'target-miss-shake' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        data-testid="falling-problem-text"
       >
-        {projectile.displayText} {projectile.displayRomaji}
-      </span>
+        <div className="enemy-falling-text__ja" data-testid="enemy-ja">
+          {projectile.displayText}
+        </div>
+        <div
+          className="enemy-falling-text__romaji"
+          aria-label={`${projectile.displayText} ${projectile.displayRomaji}`}
+          data-testid="enemy-romaji"
+        >
+          {chars.map((char, index) => {
+            const isTyped = index < projectile.typedLength
+            const isCurrent =
+              index === projectile.typedLength &&
+              projectile.state !== 'destroyed' &&
+              projectile.state !== 'hit' &&
+              projectile.state !== 'resolving'
+            return (
+              <span
+                key={`${projectile.id}-fall-${index}`}
+                className={[
+                  isTyped ? 'char-correct' : '',
+                  isCurrent ? 'char-current' : '',
+                  !isTyped && !isCurrent ? 'char-pending' : '',
+                ].join(' ')}
+              >
+                {char}
+              </span>
+            )
+          })}
+        </div>
+      </div>
 
       <div className="enemy-visual relative" aria-hidden="true">
         <div

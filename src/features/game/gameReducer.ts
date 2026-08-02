@@ -30,6 +30,13 @@ export function createInitialGameState(
     showMissFeedback: false,
     endReason: null,
     invulnerableUntilMs: 0,
+    perfectStreakCount: 0,
+    currentProblemHadMiss: false,
+    maxPerfectStreak: 0,
+    totalBonusSeconds: 0,
+    streakRewardCoins: 0,
+    timeBonusMs: 0,
+    lastStreakRewardEventId: null,
   }
 }
 
@@ -48,6 +55,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         activeProjectiles: [...state.activeProjectiles, action.projectile],
         lastProblemId: action.projectile.problemId,
+        currentProblemHadMiss: false,
       }
 
     case 'TYPE_CORRECT': {
@@ -89,6 +97,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         missCount: state.missCount + 1,
         combo: 0,
         showMissFeedback: true,
+        currentProblemHadMiss: true,
+        perfectStreakCount: 0,
       }
 
     case 'CLEAR_MISS_FEEDBACK':
@@ -98,10 +108,46 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
     case 'RESOLVE_PROJECTILE': {
+      const projectile = state.activeProjectiles.find(
+        (item) => item.id === action.projectileId,
+      )
+      if (
+        !projectile ||
+        projectile.state === 'destroyed' ||
+        projectile.state === 'hit' ||
+        projectile.state === 'resolving'
+      ) {
+        return state
+      }
+
       const nextCombo = state.combo + 1
       const nextDestroyed = state.destroyedTargets + 1
       const nextDefense = clampDefense(state.defense + action.heal)
       const nextScore = state.score + action.scoreGain
+
+      let perfectStreakCount = state.perfectStreakCount
+      let maxPerfectStreak = state.maxPerfectStreak
+      let totalBonusSeconds = state.totalBonusSeconds
+      let streakRewardCoins = state.streakRewardCoins
+      let timeBonusMs = state.timeBonusMs
+      let lastStreakRewardEventId = state.lastStreakRewardEventId
+
+      if (action.streak.kind === 'skip-miss') {
+        perfectStreakCount = 0
+      } else if (action.streak.kind === 'apply') {
+        const { result, eventId } = action.streak
+        const reached =
+          result.previousCount + 1 > 0 ? result.previousCount + 1 : 0
+        maxPerfectStreak = Math.max(maxPerfectStreak, reached)
+        perfectStreakCount = result.nextCount
+
+        if (eventId !== state.lastStreakRewardEventId) {
+          totalBonusSeconds += Math.max(0, result.timeBonusSeconds)
+          streakRewardCoins += Math.max(0, result.coinBonus)
+          timeBonusMs += Math.max(0, result.timeBonusSeconds) * 1000
+          lastStreakRewardEventId = eventId
+        }
+      }
 
       return {
         ...state,
@@ -112,6 +158,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         destroyedTargets: nextDestroyed,
         lockedProjectileId: null,
         lastInterceptAction: action.action,
+        perfectStreakCount,
+        maxPerfectStreak,
+        totalBonusSeconds,
+        streakRewardCoins,
+        timeBonusMs,
+        lastStreakRewardEventId,
+        currentProblemHadMiss: false,
         activeProjectiles: state.activeProjectiles.map((item) =>
           item.id === action.projectileId
             ? {
@@ -153,6 +206,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         failedTargets: state.failedTargets + 1,
         playerAction: 'damaged',
         invulnerableUntilMs: action.invulnerableUntilMs,
+        perfectStreakCount: 0,
+        currentProblemHadMiss: false,
         lockedProjectileId:
           state.lockedProjectileId === action.projectileId
             ? null

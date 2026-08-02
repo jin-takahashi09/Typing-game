@@ -90,9 +90,13 @@ export function tryAwardResultBonus(
   }
 }
 
-export function summarizePlayCoins(tracker: PlayCoinTracker): {
+export function summarizePlayCoins(
+  tracker: PlayCoinTracker,
+  streakRewardCoins = 0,
+): {
   stageClearCoins: number
   resultBonusCoins: number
+  streakRewardCoins: number
   totalEarned: number
   stageAwards: readonly StageCoinAward[]
 } {
@@ -100,10 +104,15 @@ export function summarizePlayCoins(tracker: PlayCoinTracker): {
     (sum, award) => sum + award.coins,
     0,
   )
+  const safeStreak =
+    typeof streakRewardCoins === 'number' && Number.isFinite(streakRewardCoins)
+      ? Math.max(0, Math.floor(streakRewardCoins))
+      : 0
   return {
     stageClearCoins,
     resultBonusCoins: tracker.resultBonusCoins,
-    totalEarned: stageClearCoins + tracker.resultBonusCoins,
+    streakRewardCoins: safeStreak,
+    totalEarned: stageClearCoins + tracker.resultBonusCoins + safeStreak,
     stageAwards: tracker.stageAwards,
   }
 }

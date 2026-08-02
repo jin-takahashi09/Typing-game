@@ -91,6 +91,12 @@ export function ResultScreen({
               </dd>
             </div>
             <div className="flex justify-between gap-3">
+              <dt className="text-[var(--color-text-soft)]">連続成功コイン</dt>
+              <dd className="font-display text-[var(--color-accent-yellow)]">
+                +{coinSummary.streakRewardCoins ?? 0}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
               <dt className="text-[var(--color-text-soft)]">成績ボーナス</dt>
               <dd className="font-display text-[var(--color-accent-yellow)]">
                 +{coinSummary.resultBonusCoins}
@@ -169,6 +175,36 @@ export function ResultScreen({
               data-testid="result-success-rate"
             >
               {summary.successRate.toFixed(1)}%
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              最大連続成功
+            </div>
+            <div
+              className="font-display text-right text-xl text-white"
+              data-testid="result-max-streak"
+            >
+              {summary.maxPerfectStreak ?? 0}
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              追加時間
+            </div>
+            <div
+              className="font-display text-right text-xl text-[var(--color-accent-yellow)]"
+              data-testid="result-bonus-time"
+            >
+              +{summary.bonusTimeSeconds ?? 0}秒
+            </div>
+
+            <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">
+              連続成功コイン
+            </div>
+            <div
+              className="font-display text-right text-xl text-[var(--color-accent-yellow)]"
+              data-testid="result-streak-coins"
+            >
+              +{summary.streakRewardCoins ?? 0}
             </div>
 
             <div className="text-sm font-bold uppercase text-[var(--color-text-muted)]">

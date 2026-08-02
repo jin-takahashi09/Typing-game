@@ -253,7 +253,8 @@ async function runChecks() {
       await page.keyboard.press(upper.inputText[0].toUpperCase())
       await delay(120)
       const locked = await page.evaluate(() => {
-        return document.querySelector('[data-testid="problem-banner"] .char-correct') !== null
+        return document.querySelector('[data-testid="enemy-romaji"] .char-correct') !== null
+          || document.querySelector('[data-testid="falling-problem-text"] .char-correct') !== null
       })
       if (locked) pass('input: uppercase works')
       else fail('input: uppercase works', upper.inputText)

@@ -50,4 +50,29 @@ describe('remainingTime', () => {
     expect(isTimeUp(clock, 61_000, 60)).toBe(true)
     expect(isTimeUp(clock, 60_999, 60)).toBe(false)
   })
+
+  it('extends remaining time with bonus ms and has no upper clamp', () => {
+    // base 60s, +5s bonus, at start → 65s
+    expect(computeRemainingMs(clock, 1_000, 60, 5_000)).toBe(65_000)
+    // after 10s elapsed → 55s remaining with bonus
+    expect(computeRemainingMs(clock, 11_000, 60, 5_000)).toBe(55_000)
+    // can exceed initial limit display-wise at t=0 with large bonus
+    expect(computeRemainingMs(clock, 1_000, 60, 120_000)).toBe(180_000)
+  })
+
+  it('ignores invalid bonus ms', () => {
+    expect(computeRemainingMs(clock, 1_000, 60, Number.NaN)).toBe(60_000)
+    expect(computeRemainingMs(clock, 1_000, 60, -3_000)).toBe(60_000)
+  })
+
+  it('keeps bonus time through pause', () => {
+    const paused = {
+      gameStartedAtMs: 1_000,
+      pausedTotalMs: 0,
+      pausedAtMs: 11_000,
+    }
+    // elapsed while active = 10s, bonus 5s, limit 60 → remaining 55s frozen
+    expect(computeRemainingMs(paused, 11_000, 60, 5_000)).toBe(55_000)
+    expect(computeRemainingMs(paused, 41_000, 60, 5_000)).toBe(55_000)
+  })
 })

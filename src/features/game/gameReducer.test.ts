@@ -69,12 +69,109 @@ describe('gameReducer (sushi-da time attack)', () => {
       action: 'throw',
       scoreGain: 120,
       heal: 0,
+      streak: {
+        kind: 'apply',
+        eventId: 'p1-streak',
+        result: {
+          previousCount: 0,
+          nextCount: 1,
+          timeBonusSeconds: 0,
+          coinBonus: 0,
+          reachedMilestone: null,
+          completedCycle: false,
+        },
+      },
     })
     expect(state.score).toBe(120)
     expect(state.combo).toBe(1)
+    expect(state.perfectStreakCount).toBe(1)
     expect(state.lockedProjectileId).toBeNull()
     expect(state.activeProjectiles[0]?.state).toBe('resolving')
     expect(state.lastInterceptAction).toBe('throw')
+  })
+
+  it('resets streak on miss and marks problem', () => {
+    let state = gameReducer(createInitialGameState('ninja'), {
+      type: 'START_GAME',
+      difficulty: 'ninja',
+      maxDefense: 100,
+      startedAtMs: 1000,
+    })
+    state = { ...state, perfectStreakCount: 5 }
+    state = gameReducer(state, { type: 'TYPE_MISS' })
+    expect(state.perfectStreakCount).toBe(0)
+    expect(state.currentProblemHadMiss).toBe(true)
+  })
+
+  it('applies streak reward once per event id', () => {
+    let state = gameReducer(createInitialGameState('ninja'), {
+      type: 'START_GAME',
+      difficulty: 'ninja',
+      maxDefense: 100,
+      startedAtMs: 1000,
+    })
+    const projectile = makeProjectile()
+    state = { ...state, activeProjectiles: [projectile] }
+    const streak = {
+      kind: 'apply' as const,
+      eventId: 'once',
+      result: {
+        previousCount: 3,
+        nextCount: 4,
+        timeBonusSeconds: 1,
+        coinBonus: 1,
+        reachedMilestone: 4 as const,
+        completedCycle: false,
+      },
+    }
+    state = gameReducer(state, {
+      type: 'RESOLVE_PROJECTILE',
+      projectileId: 'p1',
+      action: 'throw',
+      scoreGain: 10,
+      heal: 0,
+      streak,
+    })
+    expect(state.timeBonusMs).toBe(1000)
+    expect(state.streakRewardCoins).toBe(1)
+    // duplicate resolve ignored
+    const again = gameReducer(state, {
+      type: 'RESOLVE_PROJECTILE',
+      projectileId: 'p1',
+      action: 'throw',
+      scoreGain: 10,
+      heal: 0,
+      streak,
+    })
+    expect(again.timeBonusMs).toBe(1000)
+    expect(again.streakRewardCoins).toBe(1)
+  })
+
+  it('resets streak on projectile hit', () => {
+    let state = gameReducer(createInitialGameState('ninja'), {
+      type: 'START_GAME',
+      difficulty: 'ninja',
+      maxDefense: 100,
+      startedAtMs: 1000,
+    })
+    state = {
+      ...state,
+      perfectStreakCount: 6,
+      timeBonusMs: 3000,
+      streakRewardCoins: 3,
+      totalBonusSeconds: 3,
+      activeProjectiles: [makeProjectile()],
+    }
+    state = gameReducer(state, {
+      type: 'PROJECTILE_HIT_PLAYER',
+      projectileId: 'p1',
+      damage: 10,
+      invulnerableUntilMs: 5000,
+    })
+    expect(state.perfectStreakCount).toBe(0)
+    expect(state.timeBonusMs).toBe(3000)
+    expect(state.streakRewardCoins).toBe(3)
+    expect(state.totalBonusSeconds).toBe(3)
   })
 
   it('hit applies damage but does not end game at HP 0', () => {

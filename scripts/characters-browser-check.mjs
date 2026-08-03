@@ -295,9 +295,11 @@ async function runChecks() {
     const text = await page.locator('body').innerText()
     if (
       text.includes('TIME UP') &&
-      text.includes('撃破ボーナス') &&
-      text.includes('成績ボーナス') &&
-      text.includes('今回の合計')
+      text.includes('獲得コイン') &&
+      text.includes('スコア') &&
+      !text.includes('撃破ボーナス') &&
+      !text.includes('成績ボーナス') &&
+      !text.includes('今回の合計')
     ) {
       pass('result: coin summary visible')
     } else {

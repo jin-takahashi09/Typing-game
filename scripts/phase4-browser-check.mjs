@@ -102,10 +102,15 @@ async function runChecks() {
       fail('storage: saves play after gameover', JSON.stringify(storageAfterFirst))
     }
 
-    if (resultText && /前回プレイとの比較|初回プレイ/.test(resultText)) {
-      pass('result: shows comparison section')
+    if (
+      resultText &&
+      /スコア/.test(resultText) &&
+      /獲得コイン/.test(resultText) &&
+      !/前回プレイとの比較|NEW BEST|撃破ボーナス/.test(resultText)
+    ) {
+      pass('result: shows simplified summary')
     } else {
-      fail('result: shows comparison section', resultText?.slice(0, 200) ?? 'no text')
+      fail('result: shows simplified summary', resultText?.slice(0, 200) ?? 'no text')
     }
 
     await page.reload({ waitUntil: 'domcontentloaded' })

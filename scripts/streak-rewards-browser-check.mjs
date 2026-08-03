@@ -413,14 +413,22 @@ async function main() {
     await page.waitForSelector('text=TIME UP', { timeout: 8000 })
     const resultBits = await page.evaluate(() => {
       return {
-        max: document.querySelector('[data-testid="result-max-streak"]')?.textContent?.trim(),
-        time: document.querySelector('[data-testid="result-bonus-time"]')?.textContent?.trim(),
-        coins: document.querySelector('[data-testid="result-streak-coins"]')?.textContent?.trim(),
+        score: document.querySelector('[data-testid="result-score"]')?.textContent?.trim(),
+        coins: document.querySelector('[data-testid="result-total-coins"]')?.textContent?.trim(),
+        kps: document.querySelector('[data-testid="result-kps"]')?.textContent?.trim(),
+        hasBreakdown: /撃破ボーナス|成績ボーナス|連続成功コイン|今回の合計|NEW BEST/.test(
+          document.body.innerText,
+        ),
       }
     })
-    if (resultBits.max && resultBits.time?.includes('+') && resultBits.coins?.includes('+')) {
-      pass('リザルトに連続成功サマリーあり')
-    } else fail('リザルトに連続成功サマリーあり', JSON.stringify(resultBits))
+    if (
+      resultBits.score &&
+      resultBits.coins?.includes('+') &&
+      resultBits.kps &&
+      !resultBits.hasBreakdown
+    ) {
+      pass('リザルトに獲得コインと主要指標あり')
+    } else fail('リザルトに獲得コインと主要指標あり', JSON.stringify(resultBits))
     await shot(page, 'result-streak-summary.png')
 
     // initial time exceeded already covered by 12-clear bonuses (60s + 6s)

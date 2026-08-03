@@ -15,7 +15,6 @@ import { gameConfig } from '../config/gameConfig'
 import type { ActivePlayCharacter } from '../config/characters'
 import { GameArea } from '../components/game/GameArea'
 import { GameHud } from '../components/game/GameHud'
-import { DefenseGauge } from '../components/game/DefenseGauge'
 import { NinjaPlayer } from '../components/game/NinjaPlayer'
 import { TrainingGroundBackground } from '../components/game/TrainingGroundBackground'
 import { EnemyProjectileView } from '../components/game/EnemyProjectileView'
@@ -1202,6 +1201,8 @@ export function GameScreen({
           wpm={hudStats.wpm}
           coins={coins}
           coinGainFlash={coinGainFlash}
+          defense={state.defense}
+          maxDefense={gameConfig.maxHealth}
           showScoreAbilityHint={showScoreAbilityHint}
           streakCount={state.perfectStreakCount}
           streakMax={STREAK_REWARD_CONFIG.cycleLength}
@@ -1211,11 +1212,10 @@ export function GameScreen({
             state.status === 'playing' ? () => pauseGame(false) : undefined
           }
         />
-        <DefenseGauge defense={state.defense} maxDefense={gameConfig.maxHealth} />
 
         {goldAbilityFlash !== null && goldAbilityFlash > 0 && (
           <p
-            className="pointer-events-none absolute right-2 top-[11.5rem] z-40 text-xs font-bold text-[var(--color-accent-yellow)] sm:right-3 sm:top-36 md:right-4"
+            className="pointer-events-none absolute right-2 top-36 z-40 text-xs font-bold text-[var(--color-accent-yellow)] sm:right-3 sm:top-40 md:right-4"
             role="status"
           >
             黄金の褒賞 +{goldAbilityFlash}コイン

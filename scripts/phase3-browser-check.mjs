@@ -177,8 +177,8 @@ async function runChecks() {
     const text = await page.locator('body').innerText()
     if (
       text.includes('TIME UP') &&
-      (/撃破数/.test(text) || /スコア/.test(text)) &&
-      (/WPM/i.test(text) || /成功率/.test(text))
+      /スコア/.test(text) &&
+      (/成功率/.test(text) || /KPS/.test(text))
     ) {
       pass('result: shows phase 3 stats')
     } else {

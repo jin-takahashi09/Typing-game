@@ -2,12 +2,19 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTypingStats,
   calculateAccuracy,
+  calculateKps,
   calculateWpm,
 } from './calculateTypingStats'
 
 describe('calculateTypingStats', () => {
   it('calculates WPM from correct chars and elapsed time', () => {
     expect(calculateWpm(50, 60_000)).toBe(10)
+  })
+
+  it('calculates KPS from correct chars and elapsed time', () => {
+    expect(calculateKps(60, 60_000)).toBe(1)
+    expect(calculateKps(30, 10_000)).toBe(3)
+    expect(calculateKps(0, 10_000)).toBe(0)
   })
 
   it('calculates accuracy as correct divided by typed', () => {

@@ -1,15 +1,21 @@
 interface DefenseGaugeProps {
   defense: number
   maxDefense: number
+  /** absolute 配置を使う場合のみ指定（既定は親レイアウトに従う） */
+  className?: string
 }
 
-export function DefenseGauge({ defense, maxDefense }: DefenseGaugeProps) {
+export function DefenseGauge({
+  defense,
+  maxDefense,
+  className = '',
+}: DefenseGaugeProps) {
   const ratio = maxDefense > 0 ? Math.max(0, Math.min(1, defense / maxDefense)) : 0
   const percent = Math.round(ratio * 100)
 
   return (
     <div
-      className="pointer-events-none absolute right-2 top-14 z-30 w-[7.5rem] sm:right-3 sm:top-16 sm:w-36 md:right-4 md:top-[4.5rem]"
+      className={['w-full min-w-0', className].filter(Boolean).join(' ')}
       data-testid="defense-gauge"
     >
       <div className="mb-0.5 flex items-baseline justify-between gap-1">

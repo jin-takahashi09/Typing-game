@@ -1,4 +1,5 @@
 import { STREAK_REWARD_CONFIG } from '../../config/streakRewardConfig'
+import { DefenseGauge } from './DefenseGauge'
 
 interface GameHudProps {
   score: number
@@ -9,6 +10,8 @@ interface GameHudProps {
   wpm: number
   coins: number
   coinGainFlash?: number | null
+  defense: number
+  maxDefense: number
   /** 連続成功ゲージ（0〜12）。判定はしない */
   streakCount?: number
   streakMax?: number
@@ -27,6 +30,8 @@ export function GameHud({
   wpm,
   coins,
   coinGainFlash = null,
+  defense,
+  maxDefense,
   streakCount = 0,
   streakMax = STREAK_REWARD_CONFIG.cycleLength,
   timeBonusFlash = null,
@@ -124,7 +129,7 @@ export function GameHud({
         )}
       </div>
 
-      <div className="min-w-0 justify-self-end space-y-0.5 text-right sm:space-y-1">
+      <div className="flex min-w-0 max-w-[7.5rem] flex-col items-stretch gap-1 justify-self-end sm:max-w-[9rem] sm:gap-1.5 md:max-w-[10rem]">
         <div
           className={[
             'relative rounded border px-1.5 py-0.5 text-[0.6rem] font-bold sm:px-2.5 sm:text-xs',
@@ -147,7 +152,7 @@ export function GameHud({
           )}
         </div>
         <div
-          className="relative rounded border border-[var(--color-border-yellow)] bg-black/45 px-1.5 py-0.5 sm:px-2 sm:py-1"
+          className="relative rounded border border-[var(--color-border-yellow)] bg-black/45 px-1.5 py-0.5 text-right sm:px-2 sm:py-1"
           data-testid="owned-coins"
         >
           <span className="block text-[0.5rem] font-bold uppercase tracking-wider text-[var(--color-text-muted)] sm:text-[0.55rem]">
@@ -165,6 +170,9 @@ export function GameHud({
               +{coinGainFlash}
             </span>
           )}
+        </div>
+        <div className="rounded border border-[var(--color-border-blue)] bg-black/45 px-1.5 py-1 sm:px-2">
+          <DefenseGauge defense={defense} maxDefense={maxDefense} />
         </div>
       </div>
     </div>

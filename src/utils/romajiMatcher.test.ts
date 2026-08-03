@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   createRomajiMatchState,
+  getActiveRomajiView,
   processRomajiInput,
+  resolveActiveRomajiDisplay,
 } from './romajiMatcher'
 import { typingProblems } from '../data/typingProblems'
 import type { TypingProblem } from '../types/typing'
@@ -111,7 +113,7 @@ describe('romajiMatcher', () => {
       id: 'sushi-test',
       displayText: 'すし',
       reading: 'すし',
-      romajiPatterns: ['sushi'],
+      romajiPatterns: ['sushi', 'susi'],
     })
     expect(typeWord(problem, 'sushi').ok && typeWord(problem, 'sushi').state.isComplete).toBe(
       true,
@@ -126,7 +128,7 @@ describe('romajiMatcher', () => {
       id: 'kansou-test',
       displayText: '感想',
       reading: 'かんそう',
-      romajiPatterns: ['kansou'],
+      romajiPatterns: ['kansou', 'kannsou'],
     })
     const a = typeWord(problem, 'kansou')
     expect(a.ok && a.state.isComplete).toBe(true)
@@ -259,5 +261,66 @@ describe('romajiMatcher', () => {
       }
     }
     expect(failures).toEqual([])
+  })
+})
+
+describe('sushi-da romaji display switching', () => {
+  function displayAfter(problem: TypingProblem, typed: string): string {
+    let state = createRomajiMatchState()
+    for (const char of typed) {
+      const result = processRomajiInput(state, problem, char)
+      expect(result.accepted).toBe(true)
+      state = result.nextState
+    }
+    return getActiveRomajiView(problem.romajiPatterns, state).displayRomaji
+  }
+
+  it('keeps sushi until susi uniquely determines the candidate', () => {
+    const problem = makeProblem({
+      displayText: 'すし',
+      reading: 'すし',
+      romajiPatterns: ['sushi', 'susi'],
+    })
+    expect(resolveActiveRomajiDisplay(problem.romajiPatterns, '')).toBe('sushi')
+    expect(displayAfter(problem, 's')).toBe('sushi')
+    expect(displayAfter(problem, 'su')).toBe('sushi')
+    expect(displayAfter(problem, 'sus')).toBe('sushi')
+    expect(displayAfter(problem, 'susi')).toBe('susi')
+  })
+
+  it('switches shinobi to sinobi once only sinobi remains', () => {
+    const problem = makeProblem({
+      displayText: 'しのび',
+      reading: 'しのび',
+      romajiPatterns: ['shinobi', 'sinobi'],
+    })
+    expect(displayAfter(problem, 's')).toBe('shinobi')
+    expect(displayAfter(problem, 'si')).toBe('sinobi')
+    expect(displayAfter(problem, 'sin')).toBe('sinobi')
+  })
+
+  it('switches kansou to kannsou at kann', () => {
+    const problem = makeProblem({
+      displayText: '感想',
+      reading: 'かんそう',
+      romajiPatterns: ['kansou', 'kannsou'],
+    })
+    expect(displayAfter(problem, 'kan')).toBe('kansou')
+    expect(displayAfter(problem, 'kann')).toBe('kannsou')
+  })
+
+  it('aligns typedLength with the switched display string', () => {
+    const problem = makeProblem({
+      displayText: 'すし',
+      reading: 'すし',
+      romajiPatterns: ['sushi', 'susi'],
+    })
+    let state = createRomajiMatchState()
+    for (const char of 'susi') {
+      state = processRomajiInput(state, problem, char).nextState
+    }
+    const view = getActiveRomajiView(problem.romajiPatterns, state)
+    expect(view.displayRomaji).toBe('susi')
+    expect(view.typedLength).toBe(4)
   })
 })

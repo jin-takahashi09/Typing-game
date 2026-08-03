@@ -7,7 +7,6 @@ import type {
 import type { MoraNode } from './romajiRules'
 import {
   buildMoraNodes,
-  computeDisplayProgress,
   getFirstInputChars,
   isCompleteMora,
   isValidPrefix,
@@ -43,7 +42,57 @@ export function createRomajiMatchState(): RomajiMatchState {
     confirmedLength: 0,
     activePaths: [{ moraIndex: 0, partial: '' }],
     isComplete: false,
+    typedPrefix: '',
   }
+}
+
+/**
+ * 寿司打方式の表示ローマ字。
+ * 複数候補が残る間は代表（patterns[0]）、1つに確定したらその候補。
+ */
+export function resolveActiveRomajiDisplay(
+  patterns: readonly string[],
+  typedPrefix: string,
+): string {
+  const normalized = patterns
+    .map((pattern) => pattern.toLowerCase())
+    .filter((pattern) => pattern.length > 0)
+  const representative = normalized[0] ?? ''
+  const prefix =
+    typeof typedPrefix === 'string' ? typedPrefix.toLowerCase() : ''
+
+  if (!representative) {
+    return ''
+  }
+  if (!prefix) {
+    return representative
+  }
+
+  const compatible = normalized.filter((pattern) => pattern.startsWith(prefix))
+  if (compatible.length === 1) {
+    return compatible[0]!
+  }
+  if (compatible.length === 0) {
+    return representative
+  }
+  if (compatible.includes(representative)) {
+    return representative
+  }
+  return compatible[0]!
+}
+
+/** 表示文字列と入力済み文字数（色分け用） */
+export function getActiveRomajiView(
+  patterns: readonly string[],
+  state: Pick<RomajiMatchState, 'typedPrefix' | 'isComplete'>,
+): { displayRomaji: string; typedLength: number } {
+  const prefix =
+    typeof state.typedPrefix === 'string' ? state.typedPrefix.toLowerCase() : ''
+  const displayRomaji = resolveActiveRomajiDisplay(patterns, prefix)
+  const typedLength = state.isComplete
+    ? displayRomaji.length
+    : Math.min(prefix.length, displayRomaji.length)
+  return { displayRomaji, typedLength }
 }
 
 function dedupePaths(paths: RomajiPath[]): RomajiPath[] {
@@ -60,25 +109,6 @@ function dedupePaths(paths: RomajiPath[]): RomajiPath[] {
   }
 
   return result
-}
-
-function computeConfirmedLength(
-  nodes: MoraNode[],
-  paths: RomajiPath[],
-): number {
-  if (paths.length === 0) {
-    return 0
-  }
-
-  const minMoraIndex = Math.min(...paths.map((path) => path.moraIndex))
-  const pathsAtMin = paths.filter((path) => path.moraIndex === minMoraIndex)
-  const longestPartial = pathsAtMin.reduce(
-    (max, path) => Math.max(max, path.partial.length),
-    0,
-  )
-  const partial = pathsAtMin.find((path) => path.partial.length === longestPartial)?.partial ?? ''
-
-  return computeDisplayProgress(nodes, minMoraIndex, partial)
 }
 
 export function processRomajiInput(
@@ -141,6 +171,7 @@ export function processRomajiInput(
     }
   }
 
+  const typedPrefix = `${state.typedPrefix ?? ''}${lower}`
   const activePaths = dedupePaths(nextPaths)
   const finishedPaths = activePaths.filter(
     (path) => path.moraIndex >= nodes.length,
@@ -148,14 +179,19 @@ export function processRomajiInput(
   // いずれかの候補が語末に達したら完了（んの n/nn 分岐で未完了パスが残ってもよい）
   const isComplete = finishedPaths.length > 0
   const resolvedPaths = isComplete ? finishedPaths : activePaths
+  const activeDisplay = resolveActiveRomajiDisplay(
+    problem.romajiPatterns,
+    typedPrefix,
+  )
   const nextConfirmedLength = isComplete
-    ? problem.romajiPatterns[0]?.length ?? 0
-    : computeConfirmedLength(nodes, resolvedPaths)
+    ? activeDisplay.length
+    : Math.min(typedPrefix.length, activeDisplay.length || typedPrefix.length)
 
   const nextState: RomajiMatchState = {
     confirmedLength: nextConfirmedLength,
     activePaths: resolvedPaths,
     isComplete,
+    typedPrefix,
   }
 
   return {

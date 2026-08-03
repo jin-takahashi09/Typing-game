@@ -2,6 +2,7 @@ import type { DifficultyId } from '../../types/app'
 import type { GameAction, GameState } from '../../types/game'
 import { gameConfig } from '../../config/gameConfig'
 import { clampDefense } from '../../utils/calculateScore'
+import { getActiveRomajiView } from '../../utils/romajiMatcher'
 
 export function createInitialGameState(
   difficulty: DifficultyId = 'ninja',
@@ -167,18 +168,24 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         currentProblemHadMiss: false,
         activeProjectiles: state.activeProjectiles.map((item) =>
           item.id === action.projectileId
-            ? {
-                ...item,
-                state: 'resolving' as const,
-                resolveAction: action.action,
-                typedLength: item.displayRomaji.length,
-                matchState: {
-                  ...item.matchState,
-                  confirmedLength: item.displayRomaji.length,
-                  isComplete: true,
-                  activePaths: [],
-                },
-              }
+            ? (() => {
+                const view = getActiveRomajiView(
+                  item.romajiPatterns,
+                  item.matchState,
+                )
+                return {
+                  ...item,
+                  state: 'resolving' as const,
+                  resolveAction: action.action,
+                  typedLength: view.typedLength,
+                  matchState: {
+                    ...item.matchState,
+                    confirmedLength: view.typedLength,
+                    isComplete: true,
+                    activePaths: [],
+                  },
+                }
+              })()
             : item,
         ),
       }

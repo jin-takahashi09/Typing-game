@@ -37,6 +37,8 @@ export interface RomajiMatchState {
   confirmedLength: number
   activePaths: RomajiPath[]
   isComplete: boolean
+  /** 受理済み入力（小文字）。表示候補の絞り込みに使う */
+  typedPrefix: string
 }
 
 export interface RomajiMatchResult {

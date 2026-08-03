@@ -57,6 +57,7 @@ import {
 import { applyPerfectClear } from '../utils/streakRewards'
 import { STREAK_REWARD_CONFIG } from '../config/streakRewardConfig'
 import { processRomajiInput } from '../utils/romajiMatcher'
+import { clampSpawnXForRomajiLabel } from '../utils/romajiLabelLayout'
 import {
   createPlayCoinTracker,
   summarizePlayCoins,
@@ -212,6 +213,7 @@ declare global {
           displayText: string
           reading: string
           romaji: string
+          romajiPatterns?: readonly string[]
         }
       }
       pauseMotion?: boolean
@@ -223,6 +225,7 @@ declare global {
         displayText: string
         reading: string
         romaji: string
+        romajiPatterns?: readonly string[]
       }
       /** 検証用: 連続成功・時間ボーナスの読み取り */
       getStreakSnapshot?: () => {
@@ -583,6 +586,7 @@ export function GameScreen({
               displayText: string
               reading: string
               romaji: string
+              romajiPatterns?: readonly string[]
             }
           },
           living: EnemyProjectile[],
@@ -597,7 +601,11 @@ export function GameScreen({
                 id: `test-force-${Date.now()}`,
                 displayText: forced.displayText,
                 reading: forced.reading,
-                romajiPatterns: [forced.romaji.toLowerCase()],
+                romajiPatterns: (
+                  forced.romajiPatterns?.length
+                    ? forced.romajiPatterns
+                    : [forced.romaji]
+                ).map((pattern) => pattern.toLowerCase()),
                 difficulty,
                 category: 'basic' as const,
                 baseScore: 80,
@@ -607,6 +615,7 @@ export function GameScreen({
             1,
             ...problem.romajiPatterns.map((p) => p.length),
           )
+          const spawnX = clampSpawnXForRomajiLabel(opts.spawnX, romajiLen)
           const flightDurationMs = computeFallDurationMs({
             romajiLength: romajiLen,
             fallSpeed: config.fallSpeed,
@@ -615,7 +624,7 @@ export function GameScreen({
           })
           const projectile = createEnemyProjectile({
             problem,
-            spawnX: opts.spawnX,
+            spawnX,
             trajectory: opts.trajectory,
             size: opts.size,
             damage: opts.damage,
@@ -639,7 +648,7 @@ export function GameScreen({
             motionRef.current.set(projectile.id, { elapsedMs })
             if (opts.freeze) {
               frozenPositionsRef.current.set(projectile.id, {
-                xPercent: projectile.spawnX,
+                xPercent: spawnX,
                 yPercent,
               })
             }

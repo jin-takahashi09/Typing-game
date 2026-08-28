@@ -1,5 +1,4 @@
 import { STREAK_REWARD_CONFIG } from '../../config/streakRewardConfig'
-import { DefenseGauge } from './DefenseGauge'
 
 interface GameHudProps {
   score: number
@@ -10,8 +9,6 @@ interface GameHudProps {
   wpm: number
   coins: number
   coinGainFlash?: number | null
-  defense: number
-  maxDefense: number
   /** 連続成功ゲージ（0〜12）。判定はしない */
   streakCount?: number
   streakMax?: number
@@ -30,8 +27,6 @@ export function GameHud({
   wpm,
   coins,
   coinGainFlash = null,
-  defense,
-  maxDefense,
   streakCount = 0,
   streakMax = STREAK_REWARD_CONFIG.cycleLength,
   timeBonusFlash = null,
@@ -170,9 +165,6 @@ export function GameHud({
               +{coinGainFlash}
             </span>
           )}
-        </div>
-        <div className="rounded border border-[var(--color-border-blue)] bg-black/45 px-1.5 py-1 sm:px-2">
-          <DefenseGauge defense={defense} maxDefense={maxDefense} />
         </div>
       </div>
     </div>

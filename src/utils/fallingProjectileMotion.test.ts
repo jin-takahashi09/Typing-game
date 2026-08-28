@@ -56,7 +56,7 @@ describe('fallingProjectileMotion (straight drop)', () => {
     for (const p of [0, 0.25, 0.5, 0.75, 1, 1.2]) {
       const sample = sampleFallingMotion({
         spawnX: 55,
-        spawnY: -6,
+        spawnY: 20,
         impactY: PLAYER_Y_PERCENT,
         trajectory: 'accelerating',
         progress: p,

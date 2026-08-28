@@ -16,6 +16,8 @@ export function resetProjectileIdSequence(): void {
 export interface CreateProjectileParams {
   problem: TypingProblem
   spawnX: number
+  /** 出現 Y%（画面内・HUD 下）。省略時は短い問題向け既定 */
+  spawnY?: number
   trajectory: FallingTrajectory
   size: ProjectileSize
   damage: number
@@ -30,6 +32,7 @@ export function createEnemyProjectile(
   const {
     problem,
     spawnX,
+    spawnY = 20,
     trajectory,
     size,
     damage,
@@ -52,7 +55,7 @@ export function createEnemyProjectile(
     typedLength: 0,
     baseScore: problem.baseScore,
     spawnX,
-    spawnY: -6,
+    spawnY,
     velocityX: 0,
     velocityY: 1,
     speed: 100 / Math.max(1, flightDurationMs),

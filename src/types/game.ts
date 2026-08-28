@@ -39,6 +39,8 @@ export interface GameState {
   gameStartedAtMs: number | null
   pausedTotalMs: number
   pausedAtMs: number | null
+  /** プレイ可能問題が無い空白の一時停止開始時刻 */
+  idlePausedAtMs: number | null
   showMissFeedback: boolean
   endReason: GameEndReason | null
   invulnerableUntilMs: number
@@ -115,7 +117,7 @@ export type StreakResolvePayload =
 
 export type GameAction =
   | { type: 'START_GAME'; difficulty: DifficultyId; maxDefense: number; startedAtMs: number }
-  | { type: 'SPAWN_PROJECTILE'; projectile: EnemyProjectile }
+  | { type: 'SPAWN_PROJECTILE'; projectile: EnemyProjectile; nowMs: number }
   | {
       type: 'TYPE_CORRECT'
       projectileId: string
@@ -132,15 +134,18 @@ export type GameAction =
       heal: number
       streak: StreakResolvePayload
     }
-  | { type: 'REMOVE_PROJECTILE'; projectileId: string }
+  | { type: 'REMOVE_PROJECTILE'; projectileId: string; nowMs?: number }
   | {
       type: 'PROJECTILE_HIT_PLAYER'
       projectileId: string
       damage: number
       invulnerableUntilMs: number
+      nowMs?: number
     }
   | { type: 'SET_PLAYER_ACTION'; action: PlayerAction }
   | { type: 'END_GAME'; reason: GameEndReason }
   | { type: 'PAUSE_GAME'; atMs: number }
   | { type: 'RESUME_GAME'; atMs: number }
   | { type: 'RESET_GAME'; difficulty: DifficultyId; maxDefense: number; startedAtMs: number }
+  | { type: 'BEGIN_IDLE_PAUSE'; atMs: number }
+  | { type: 'END_IDLE_PAUSE'; atMs: number }

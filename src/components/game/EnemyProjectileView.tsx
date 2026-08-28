@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react'
 import type { EnemyProjectile } from '../../types/projectile'
 import { PLAYER_X_PERCENT } from '../../types/projectile'
 import { getActiveRomajiView } from '../../utils/romajiMatcher'
-import { romajiLengthTier } from '../../utils/romajiLabelLayout'
 
 interface EnemyProjectileViewProps {
   projectile: EnemyProjectile
@@ -47,7 +46,6 @@ export function EnemyProjectileView({
   const { displayRomaji: activeRomaji, typedLength: activeTypedLength } =
     getActiveRomajiView(projectile.romajiPatterns, projectile.matchState)
   const chars = activeRomaji.split('')
-  const lengthTier = romajiLengthTier(activeRomaji.length)
   const isResolving =
     projectile.state === 'resolving' || projectile.state === 'destroyed'
   const isEmergency =
@@ -88,13 +86,11 @@ export function EnemyProjectileView({
       <div
         className={[
           'enemy-falling-text',
-          `enemy-falling-text--${lengthTier}`,
           showMiss && isLocked ? 'target-miss-shake' : '',
         ]
           .filter(Boolean)
           .join(' ')}
         data-testid="falling-problem-text"
-        data-romaji-tier={lengthTier}
       >
         <div className="enemy-falling-text__ja" data-testid="enemy-ja">
           {projectile.displayText}

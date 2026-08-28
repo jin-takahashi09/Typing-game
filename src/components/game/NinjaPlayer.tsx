@@ -10,7 +10,6 @@ interface NinjaPlayerProps {
   reducedMotion: boolean
   slashAngleDeg?: number
   showScoreBurst?: boolean
-  showGuardBurst?: boolean
   showEmergencyHint?: boolean
 }
 
@@ -20,7 +19,6 @@ export function NinjaPlayer({
   reducedMotion,
   slashAngleDeg = 0,
   showScoreBurst = false,
-  showGuardBurst = false,
   showEmergencyHint = false,
 }: NinjaPlayerProps) {
   const isEmergency = action === 'emergency-slashing'
@@ -45,6 +43,7 @@ export function NinjaPlayer({
           skinClass={character.skinClass}
           visual={character.visual}
           showIdleEffects={!reducedMotion && action === 'idle'}
+          rarity={character.rarity}
         />
         {isEmergency && !reducedMotion && (
           <>
@@ -82,9 +81,6 @@ export function NinjaPlayer({
         )}
         {showScoreBurst && !reducedMotion && (
           <div className="ability-burst ability-burst--fire" data-ability-fx="score" />
-        )}
-        {showGuardBurst && !reducedMotion && (
-          <div className="ability-burst ability-burst--shield" data-ability-fx="guard" />
         )}
       </div>
     </div>

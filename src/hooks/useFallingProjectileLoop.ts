@@ -142,7 +142,9 @@ export function useFallingProjectileLoop({
         }
       }
 
-      callbacksRef.current.onFrameImpactCheck(nowMs)
+      if (!pauseMotion) {
+        callbacksRef.current.onFrameImpactCheck(nowMs)
+      }
       callbacksRef.current.onSpawnTick(nowMs)
       rafRef.current = requestAnimationFrame(tick)
     }

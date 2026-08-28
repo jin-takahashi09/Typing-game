@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { CSSProperties } from 'react'
 import {
   getDifficultyConfig,
   getMaxActiveTargets,
@@ -21,7 +20,6 @@ import { EnemyProjectileView } from '../components/game/EnemyProjectileView'
 import { AllyShurikenFx } from '../components/game/AllyShurikenFx'
 import { ComboDisplay } from '../components/game/ComboDisplay'
 import { PauseOverlay } from '../components/game/PauseOverlay'
-import { AbilityFloatText } from '../components/game/AbilityFloatText'
 import {
   createInitialGameState,
   gameReducer,
@@ -65,9 +63,11 @@ import {
   type PlayCoinTracker,
 } from '../utils/coinRewards'
 import {
+  applyComboMultiplierBonus,
   applyDamageAbility,
   applyScoreAbility,
   applyStageCoinAbility,
+  getTimeBonusSeconds,
 } from '../utils/characterAbilities'
 import {
   isEmergencySlash,
@@ -86,6 +86,7 @@ import {
   computeFallProgress,
   sampleFallingMotion,
 } from '../utils/fallingProjectileMotion'
+import { computeSpawnYPercent } from '../utils/spawnLayout'
 import { getSoundManager } from '../audio/SoundManager'
 import type { DifficultyId } from '../types/app'
 import type { GameResultSummary, PlayCoinSummary } from '../types/game'
@@ -138,9 +139,23 @@ interface GameScreenProps {
 import type { AllyShurikenVariant } from '../components/game/AllyShurikenFx'
 
 function allyVariantFor(characterId: string): AllyShurikenVariant {
-  if (characterId === 'shinobi-red') return 'fire'
-  if (characterId === 'shinobi-blue') return 'water'
-  if (characterId === 'shinobi-gold') return 'gold'
+  if (
+    characterId === 'shinobi-red' ||
+    characterId === 'shinobi-kokuen' ||
+    characterId === 'shinobi-akatsuki'
+  ) {
+    return 'fire'
+  }
+  if (characterId === 'shinobi-blue' || characterId === 'shinobi-byakuya') {
+    return 'water'
+  }
+  if (
+    characterId === 'shinobi-gold' ||
+    characterId === 'shinobi-tenko' ||
+    characterId === 'shinobi-raikage'
+  ) {
+    return 'gold'
+  }
   return 'basic'
 }
 
@@ -219,6 +234,8 @@ declare global {
       suppressSpawn?: boolean
       /** 検証用: true で時間切れ終了を即時発火（消費） */
       forceEndGame?: boolean
+      /** 検証用: ガチャ抽選の決定的 RNG（UI ボタンは出さない） */
+      gachaRng?: () => number
       /** 検証用: 次スポーンの問題を強制（消費は requestImmediateSpawn 側） */
       forceProblem?: {
         displayText: string
@@ -256,10 +273,21 @@ export function GameScreen({
   onAbandonToTitle,
 }: GameScreenProps) {
   const config = useMemo(() => getDifficultyConfig(difficulty), [difficulty])
+  const effectiveTimeLimitSeconds = useMemo(
+    () =>
+      config.timeLimitSeconds + getTimeBonusSeconds(playCharacter.ability),
+    [config.timeLimitSeconds, playCharacter.ability],
+  )
+  const effectiveComboMultiplier = useMemo(
+    () =>
+      applyComboMultiplierBonus(config.comboMultiplier, playCharacter.ability),
+    [config.comboMultiplier, playCharacter.ability],
+  )
   const [state, dispatch] = useReducer(gameReducer, undefined, () => ({
     ...createInitialGameState(difficulty, gameConfig.maxHealth),
     status: 'playing' as const,
-    gameStartedAtMs: Date.now(),
+    // 最初の問題が表示されるまでタイマーは開始しない
+    gameStartedAtMs: null,
   }))
 
   const [hudNowMs, setHudNowMs] = useState(() => Date.now())
@@ -272,8 +300,6 @@ export function GameScreen({
   const [showEmergencyHint, setShowEmergencyHint] = useState(false)
   const [showScoreBurst, setShowScoreBurst] = useState(false)
   const [showScoreAbilityHint, setShowScoreAbilityHint] = useState(false)
-  const [showGuardBurst, setShowGuardBurst] = useState(false)
-  const [guardFloat, setGuardFloat] = useState<{ reducedBy: number } | null>(null)
   const [pausedFromBrowserBack, setPausedFromBrowserBack] = useState(false)
   const [coinGainFlash, setCoinGainFlash] = useState<number | null>(null)
   const [goldAbilityFlash, setGoldAbilityFlash] = useState<number | null>(null)
@@ -293,6 +319,8 @@ export function GameScreen({
   const abilityBonusScoreRef = useRef(0)
   const abilityBonusCoinsRef = useRef(0)
   const resolvingIdsRef = useRef<Set<string>>(new Set())
+  /** SPAWN dispatch 後〜state 反映前の二重生成を防ぐ */
+  const spawnPendingRef = useRef(false)
   const streakAwardedEventsRef = useRef<Set<string>>(new Set())
   const areaSizeRef = useRef(areaSize)
   const problemBagRef = useRef<ProblemBag | null>(null)
@@ -373,6 +401,7 @@ export function GameScreen({
     return () => {
       clearTimers()
       endedRef.current = true
+      spawnPendingRef.current = false
       motions.clear()
       elements.clear()
       resolvingIds.clear()
@@ -440,9 +469,10 @@ export function GameScreen({
             gameStartedAtMs: current.gameStartedAtMs,
             pausedTotalMs: current.pausedTotalMs,
             pausedAtMs: current.pausedAtMs,
+            idlePausedAtMs: current.idlePausedAtMs,
           },
           now,
-          config.timeLimitSeconds,
+          effectiveTimeLimitSeconds,
           current.timeBonusMs,
         )
       ) {
@@ -453,7 +483,7 @@ export function GameScreen({
     const intervalId = window.setInterval(tick, gameConfig.hudStatsUpdateIntervalMs)
     tick()
     return () => window.clearInterval(intervalId)
-  }, [state.status, state.gameStartedAtMs, state.timeBonusMs, config.timeLimitSeconds])
+  }, [state.status, state.gameStartedAtMs, state.timeBonusMs, effectiveTimeLimitSeconds])
 
   useEffect(() => {
     if (state.status === 'gameover' && !endedRef.current) {
@@ -466,6 +496,7 @@ export function GameScreen({
           gameStartedAtMs: state.gameStartedAtMs,
           pausedTotalMs: state.pausedTotalMs,
           pausedAtMs: state.pausedAtMs,
+          idlePausedAtMs: state.idlePausedAtMs,
         },
         Date.now(),
       )
@@ -504,7 +535,7 @@ export function GameScreen({
           abilityBonusScore: abilityBonusScoreRef.current,
           abilityBonusCoins: abilityBonusCoinsRef.current,
           endReason: state.endReason ?? 'timeout',
-          timeLimitSeconds: config.timeLimitSeconds,
+          timeLimitSeconds: effectiveTimeLimitSeconds,
           maxPerfectStreak: state.maxPerfectStreak,
           bonusTimeSeconds: state.totalBonusSeconds,
           streakRewardCoins: state.streakRewardCoins,
@@ -518,7 +549,7 @@ export function GameScreen({
         },
       )
     }
-  }, [state, onGameOver, playSessionId, playCharacter.characterId, config.timeLimitSeconds, config.coinMilestoneEvery])
+  }, [state, onGameOver, playSessionId, playCharacter.characterId, effectiveTimeLimitSeconds, config.coinMilestoneEvery])
 
   useEffect(() => {
     if (!state.showMissFeedback) return
@@ -621,9 +652,11 @@ export function GameScreen({
             trajectory: opts.trajectory,
             size: opts.size,
           })
+          const spawnY = computeSpawnYPercent(romajiLen)
           const projectile = createEnemyProjectile({
             problem,
             spawnX,
+            spawnY,
             trajectory: opts.trajectory,
             size: opts.size,
             damage: opts.damage,
@@ -661,30 +694,47 @@ export function GameScreen({
           } else {
             motionRef.current.set(projectile.id, { elapsedMs: 0 })
           }
-          dispatch({ type: 'SPAWN_PROJECTILE', projectile })
+          dispatch({ type: 'SPAWN_PROJECTILE', projectile, nowMs: wallNowMs })
+          // stateRef は useEffect 反映前のため、即時に楽観更新して二重 SPAWN を防ぐ
+          const prev = stateRef.current
+          stateRef.current = {
+            ...prev,
+            activeProjectiles: [...prev.activeProjectiles, projectile],
+            lastProblemId: projectile.problemId,
+            currentProblemHadMiss: false,
+            gameStartedAtMs: prev.gameStartedAtMs ?? wallNowMs,
+            idlePausedAtMs: null,
+          }
           return projectile
         }
 
+        // プレイ可能な問題のみ同時数を制限（resolving/hit・解決中 ID は次問をブロックしない）
         const living = current.activeProjectiles.filter(
           (p) =>
-            p.state === 'incoming' ||
-            p.state === 'targeted' ||
-            p.state === 'resolving' ||
-            p.state === 'hit',
+            (p.state === 'incoming' || p.state === 'targeted') &&
+            !resolvingIdsRef.current.has(p.id),
         ) as EnemyProjectile[]
+
+        if (living.length > 0) {
+          spawnPendingRef.current = false
+        }
 
         const immediate = window.__SHINOBI_KEYS_TEST__?.requestImmediateSpawn
         if (immediate && window.__SHINOBI_KEYS_TEST__) {
-          window.__SHINOBI_KEYS_TEST__.requestImmediateSpawn = undefined
           // 寿司打: 原則1体。allowMultiple は検証用のみ
-          if (!immediate.allowMultiple && living.length > 0) {
+          // pending / living 中はリクエストを消費せず次 tick に残す
+          if (!immediate.allowMultiple && (living.length > 0 || spawnPendingRef.current)) {
             return 0
           }
+          window.__SHINOBI_KEYS_TEST__.requestImmediateSpawn = undefined
           const forceProblem =
             immediate.forceProblem ??
             window.__SHINOBI_KEYS_TEST__.forceProblem
           if (window.__SHINOBI_KEYS_TEST__.forceProblem) {
             window.__SHINOBI_KEYS_TEST__.forceProblem = undefined
+          }
+          if (!immediate.allowMultiple) {
+            spawnPendingRef.current = true
           }
           const spawned = spawnOne(
             {
@@ -699,6 +749,9 @@ export function GameScreen({
             },
             living,
           )
+          if (!spawned && !immediate.allowMultiple) {
+            spawnPendingRef.current = false
+          }
           return spawned ? 1 : 0
         }
 
@@ -708,6 +761,8 @@ export function GameScreen({
         const maxActive = getMaxActiveTargets(config)
         if (!canSpawnMore(living.length, maxActive)) return 0
         if (living.length > 0) return 0
+        // React state 反映前の tick/interval による二重 SPAWN を防ぐ
+        if (spawnPendingRef.current) return 0
 
         const forceSpawn = window.__SHINOBI_KEYS_TEST__?.forceNextSpawn
         if (forceSpawn && window.__SHINOBI_KEYS_TEST__) {
@@ -718,6 +773,7 @@ export function GameScreen({
           forceSpawn?.spawnX ??
           SPAWN_COLUMNS[Math.floor(Math.random() * SPAWN_COLUMNS.length)]!
 
+        spawnPendingRef.current = true
         const projectile = spawnOne(
           {
             spawnX,
@@ -730,7 +786,11 @@ export function GameScreen({
           },
           living,
         )
-        return projectile ? 1 : 0
+        if (!projectile) {
+          spawnPendingRef.current = false
+          return 0
+        }
+        return 1
       } catch (error) {
         console.error('spawnFromDirector failed', error)
         return 0
@@ -758,7 +818,11 @@ export function GameScreen({
             elementRefs.current.delete(projectile.id)
             resolvingIdsRef.current.delete(projectile.id)
             frozenPositionsRef.current.delete(projectile.id)
-            dispatch({ type: 'REMOVE_PROJECTILE', projectileId: projectile.id })
+            dispatch({
+              type: 'REMOVE_PROJECTILE',
+              projectileId: projectile.id,
+              nowMs: Date.now(),
+            })
           }
           continue
         }
@@ -787,14 +851,6 @@ export function GameScreen({
             projectile.damage,
             playCharacter.ability,
           )
-          if (damageResult.reducedBy > 0) {
-            setShowGuardBurst(true)
-            setGuardFloat({ reducedBy: damageResult.reducedBy })
-            schedule(() => {
-              setShowGuardBurst(false)
-              setGuardFloat(null)
-            }, 800)
-          }
           getSoundManager().playSfx('damage')
           setDamaged(!reducedMotion)
           schedule(() => setDamaged(false), 200)
@@ -803,22 +859,46 @@ export function GameScreen({
               dispatch({ type: 'SET_PLAYER_ACTION', action: 'idle' })
             }
           }, 280)
+          resolvingIdsRef.current.add(projectile.id)
           dispatch({
             type: 'PROJECTILE_HIT_PLAYER',
             projectileId: projectile.id,
             damage: damageResult.finalDamage,
             invulnerableUntilMs: nowMs + gameConfig.invulnerableMs,
+            nowMs,
           })
+          // spawn 判定用に stateRef を即時反映（HIT 後の次問生成）
+          {
+            const prev = stateRef.current
+            const projectiles = prev.activeProjectiles.map((item) =>
+              item.id === projectile.id ? { ...item, state: 'hit' as const } : item,
+            )
+            stateRef.current = {
+              ...prev,
+              activeProjectiles: projectiles,
+              combo: 0,
+              failedTargets: prev.failedTargets + 1,
+              lockedProjectileId:
+                prev.lockedProjectileId === projectile.id
+                  ? null
+                  : prev.lockedProjectileId,
+            }
+          }
+          // 失敗後は次の問題を即時生成（空白時間でタイマーを減らさない）
+          if (stateRef.current.status === 'playing') {
+            spawnFromDirector(Date.now())
+          }
           schedule(() => {
             motionRef.current.delete(projectile.id)
             elementRefs.current.delete(projectile.id)
             frozenPositionsRef.current.delete(projectile.id)
-            dispatch({ type: 'REMOVE_PROJECTILE', projectileId: projectile.id })
-            // 失敗後に次の敵を生成（寿司打方式）
-            if (stateRef.current.status === 'playing') {
-              spawnFromDirector(Date.now())
-            }
-          }, 120)
+            resolvingIdsRef.current.delete(projectile.id)
+            dispatch({
+              type: 'REMOVE_PROJECTILE',
+              projectileId: projectile.id,
+              nowMs: Date.now(),
+            })
+          }, gameConfig.destroyRemoveDelayMs)
           break
         }
       }
@@ -948,7 +1028,7 @@ export function GameScreen({
           baseScore: projectile.baseScore,
           difficultyMultiplier: config.scoreMultiplier,
           combo: nextCombo,
-          comboMultiplier: config.comboMultiplier,
+          comboMultiplier: effectiveComboMultiplier,
         })
         const applied = applyScoreAbility(baseGain, playCharacter.ability)
         abilityBonusScoreRef.current += applied.bonusScore
@@ -1083,17 +1163,34 @@ export function GameScreen({
           heal: config.killHeal,
           streak: streakPayload,
         })
+        {
+          const prev = stateRef.current
+          stateRef.current = {
+            ...prev,
+            activeProjectiles: prev.activeProjectiles.map((item) =>
+              item.id === projectile.id
+                ? { ...item, state: 'resolving' as const }
+                : item,
+            ),
+            lockedProjectileId: null,
+          }
+        }
+
+        // 成功後は次の問題を即時生成（演出削除は後追い）
+        if (stateRef.current.status === 'playing') {
+          spawnFromDirector(Date.now())
+        }
 
         schedule(() => {
           motionRef.current.delete(projectile.id)
           elementRefs.current.delete(projectile.id)
           resolvingIdsRef.current.delete(projectile.id)
           frozenPositionsRef.current.delete(projectile.id)
-          dispatch({ type: 'REMOVE_PROJECTILE', projectileId: projectile.id })
-          // 成功後に次の敵を生成（寿司打方式）
-          if (stateRef.current.status === 'playing') {
-            spawnFromDirector(Date.now())
-          }
+          dispatch({
+            type: 'REMOVE_PROJECTILE',
+            projectileId: projectile.id,
+            nowMs: Date.now(),
+          })
         }, gameConfig.destroyRemoveDelayMs)
         return
       }
@@ -1105,7 +1202,7 @@ export function GameScreen({
         matchState: matchResult.nextState,
       })
     },
-    [config, schedule, reducedMotion, playCharacter, spawnFromDirector, onAwardStageCoins],
+    [config, schedule, reducedMotion, playCharacter, spawnFromDirector, onAwardStageCoins, effectiveComboMultiplier],
   )
 
   const hudStats = useMemo(() => {
@@ -1114,6 +1211,7 @@ export function GameScreen({
         gameStartedAtMs: state.gameStartedAtMs,
         pausedTotalMs: state.pausedTotalMs,
         pausedAtMs: state.pausedAtMs,
+        idlePausedAtMs: state.idlePausedAtMs,
       },
       state.status === 'paused' ? (state.pausedAtMs ?? hudNowMs) : hudNowMs,
     )
@@ -1129,6 +1227,7 @@ export function GameScreen({
     hudNowMs,
     state.correctChars,
     state.gameStartedAtMs,
+    state.idlePausedAtMs,
     state.missCount,
     state.pausedAtMs,
     state.pausedTotalMs,
@@ -1142,15 +1241,17 @@ export function GameScreen({
         gameStartedAtMs: state.gameStartedAtMs,
         pausedTotalMs: state.pausedTotalMs,
         pausedAtMs: state.pausedAtMs,
+        idlePausedAtMs: state.idlePausedAtMs,
       },
       state.status === 'paused' ? (state.pausedAtMs ?? hudNowMs) : hudNowMs,
-      config.timeLimitSeconds,
+      effectiveTimeLimitSeconds,
       state.timeBonusMs,
     )
   }, [
-    config.timeLimitSeconds,
+    effectiveTimeLimitSeconds,
     hudNowMs,
     state.gameStartedAtMs,
+    state.idlePausedAtMs,
     state.pausedAtMs,
     state.pausedTotalMs,
     state.status,
@@ -1201,8 +1302,6 @@ export function GameScreen({
           wpm={hudStats.wpm}
           coins={coins}
           coinGainFlash={coinGainFlash}
-          defense={state.defense}
-          maxDefense={gameConfig.maxHealth}
           showScoreAbilityHint={showScoreAbilityHint}
           streakCount={state.perfectStreakCount}
           streakMax={STREAK_REWARD_CONFIG.cycleLength}
@@ -1269,26 +1368,8 @@ export function GameScreen({
           reducedMotion={reducedMotion}
           slashAngleDeg={slashAngle}
           showScoreBurst={showScoreBurst}
-          showGuardBurst={showGuardBurst}
           showEmergencyHint={showEmergencyHint}
         />
-
-        {guardFloat && (
-          <div
-            className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2"
-            style={
-              {
-                left: `${PLAYER_X_PERCENT}%`,
-                top: `${PLAYER_Y_PERCENT - 12}%`,
-              } as CSSProperties
-            }
-          >
-            <AbilityFloatText
-              text={`蒼影の守り -${guardFloat.reducedBy}`}
-              variant="water"
-            />
-          </div>
-        )}
 
         {config.showBeginnerGuide && state.destroyedTargets === 0 && (
           <p className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[90%] -translate-x-1/2 text-center text-sm text-[var(--color-text-soft)] md:bottom-32">

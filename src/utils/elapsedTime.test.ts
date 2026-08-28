@@ -21,4 +21,18 @@ describe('elapsedTime', () => {
     expect(clock.pausedTotalMs).toBe(2000)
     expect(computeElapsedMs(clock, 5000)).toBe(2000)
   })
+
+  it('elapsed stays zero until the clock starts', () => {
+    const clock = createElapsedClockState(null)
+    expect(computeElapsedMs(clock, 9000)).toBe(0)
+  })
+
+  it('freezes during idlePausedAtMs gaps', () => {
+    const clock = {
+      ...createElapsedClockState(1000),
+      idlePausedAtMs: 3000,
+    }
+    expect(computeElapsedMs(clock, 3000)).toBe(2000)
+    expect(computeElapsedMs(clock, 8000)).toBe(2000)
+  })
 })

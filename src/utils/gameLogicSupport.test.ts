@@ -23,7 +23,7 @@ function makeProjectile(
     matchState: createRomajiMatchState(),
     typedLength: 0,
     spawnX: 50,
-    spawnY: -6,
+    spawnY: 20,
     velocityX: 0,
     velocityY: 1,
     speed: 0.05,

@@ -17,7 +17,7 @@ function makeProjectile(
     typedLength: 0,
     baseScore: 100,
     spawnX: 50,
-    spawnY: -6,
+    spawnY: 20,
     velocityX: 0,
     velocityY: 1,
     speed: 0.05,
@@ -50,6 +50,46 @@ describe('gameReducer (sushi-da time attack)', () => {
     })
     expect(started.playerAction).toBe('idle')
     expect(started.activeProjectiles).toEqual([])
+  })
+
+  it('starts the clock only when the first projectile spawns', () => {
+    let state: ReturnType<typeof createInitialGameState> = {
+      ...createInitialGameState('ninja'),
+      status: 'playing',
+      gameStartedAtMs: null,
+    }
+    expect(state.gameStartedAtMs).toBeNull()
+
+    state = gameReducer(state, {
+      type: 'SPAWN_PROJECTILE',
+      projectile: makeProjectile({ spawnY: 22 }),
+      nowMs: 5000,
+    })
+    expect(state.gameStartedAtMs).toBe(5000)
+    expect(state.idlePausedAtMs).toBeNull()
+  })
+
+  it('idle-pauses when no playable projectile remains', () => {
+    let state: ReturnType<typeof createInitialGameState> = {
+      ...createInitialGameState('ninja'),
+      status: 'playing',
+      gameStartedAtMs: 1000,
+      activeProjectiles: [makeProjectile({ id: 'p1', state: 'incoming' })],
+    }
+    state = gameReducer(state, {
+      type: 'REMOVE_PROJECTILE',
+      projectileId: 'p1',
+      nowMs: 2000,
+    })
+    expect(state.idlePausedAtMs).toBe(2000)
+
+    state = gameReducer(state, {
+      type: 'SPAWN_PROJECTILE',
+      projectile: makeProjectile({ id: 'p2', spawnY: 22 }),
+      nowMs: 3500,
+    })
+    expect(state.idlePausedAtMs).toBeNull()
+    expect(state.pausedTotalMs).toBe(1500)
   })
 
   it('resolves to resolving and unlocks lock', () => {

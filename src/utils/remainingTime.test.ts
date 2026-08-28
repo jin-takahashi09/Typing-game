@@ -75,4 +75,25 @@ describe('remainingTime', () => {
     expect(computeRemainingMs(paused, 11_000, 60, 5_000)).toBe(55_000)
     expect(computeRemainingMs(paused, 41_000, 60, 5_000)).toBe(55_000)
   })
+
+  it('returns full limit while clock has not started', () => {
+    const waiting = {
+      gameStartedAtMs: null as number | null,
+      pausedTotalMs: 0,
+      pausedAtMs: null as number | null,
+    }
+    expect(computeRemainingMs(waiting, 50_000, 60)).toBe(60_000)
+    expect(isTimeUp(waiting, 50_000, 60)).toBe(false)
+  })
+
+  it('freezes during idle gap when no problem is active', () => {
+    const idle = {
+      gameStartedAtMs: 1_000,
+      pausedTotalMs: 0,
+      pausedAtMs: null as number | null,
+      idlePausedAtMs: 21_000,
+    }
+    expect(computeRemainingMs(idle, 21_000, 60)).toBe(40_000)
+    expect(computeRemainingMs(idle, 41_000, 60)).toBe(40_000)
+  })
 })

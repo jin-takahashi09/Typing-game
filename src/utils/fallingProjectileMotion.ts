@@ -41,7 +41,7 @@ function sanitize(value: number, fallback = 0): number {
 export function sampleFallingMotion(params: MotionParams): MotionSample {
   const progress = clamp(sanitize(params.progress), 0, 1.25)
   const startX = sanitize(params.spawnX, 50)
-  const startY = sanitize(params.spawnY, -8)
+  const startY = sanitize(params.spawnY, 20)
   const endY = sanitize(params.impactY, PLAYER_Y_PERCENT)
   const spanY = endY - startY
 
@@ -96,10 +96,10 @@ export function computeFallDurationMs(input: FallTimeInput): number {
   const len = Math.max(1, input.romajiLength)
   const fallSpeed = Math.max(0.35, input.fallSpeed)
   // 基準: fallSpeed=1.0 で中程度。係数で時間を割る
-  const assumedWpm = 35
+  const assumedWpm = 32
   const charsPerMs = (assumedWpm * 5) / 60_000
   let duration = len / Math.max(0.0001, charsPerMs)
-  duration *= 1.55
+  duration *= 1.75
   duration /= fallSpeed
 
   if (input.trajectory === 'accelerating') {
@@ -112,8 +112,8 @@ export function computeFallDurationMs(input: FallTimeInput): number {
     duration *= 0.9
   }
 
-  const minMs = 1800 + len * 80
-  const maxMs = 12_000 + len * 140
+  const minMs = 2400 + len * 120
+  const maxMs = 14_000 + len * 160
   return Math.round(clamp(duration, minMs, maxMs))
 }
 

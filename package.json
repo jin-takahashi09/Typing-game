@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "node scripts/final-browser-check.mjs && node scripts/gameplay-browser-check.mjs && node scripts/gacha-browser-check.mjs && node scripts/shinobi-record-page-browser-check.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

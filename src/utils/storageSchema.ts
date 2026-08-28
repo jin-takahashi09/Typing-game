@@ -137,6 +137,18 @@ function normalizePlayRecord(raw: unknown): PlayRecord | null {
     raw.timeLimitSeconds === undefined
       ? undefined
       : toNonNegativeNumber(raw.timeLimitSeconds)
+  const maxPerfectStreak =
+    raw.maxPerfectStreak === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.maxPerfectStreak)
+  const bonusTimeSeconds =
+    raw.bonusTimeSeconds === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.bonusTimeSeconds)
+  const streakRewardCoins =
+    raw.streakRewardCoins === undefined
+      ? undefined
+      : toNonNegativeNumber(raw.streakRewardCoins)
 
   return {
     id,
@@ -157,6 +169,9 @@ function normalizePlayRecord(raw: unknown): PlayRecord | null {
     ...(abilityBonusCoins !== undefined ? { abilityBonusCoins } : {}),
     ...(endReason !== undefined ? { endReason } : {}),
     ...(timeLimitSeconds !== undefined ? { timeLimitSeconds } : {}),
+    ...(maxPerfectStreak !== undefined ? { maxPerfectStreak } : {}),
+    ...(bonusTimeSeconds !== undefined ? { bonusTimeSeconds } : {}),
+    ...(streakRewardCoins !== undefined ? { streakRewardCoins } : {}),
   }
 }
 
@@ -210,6 +225,22 @@ const migrationSteps: Partial<Record<number, MigrationStep>> = {
       ...raw,
       version: 2,
       economy: createDefaultEconomy(),
+    }
+  },
+  2: (raw) => {
+    if (!isObject(raw)) {
+      return createDefaultStoredData()
+    }
+    const economyRaw = isObject(raw.economy) ? raw.economy : {}
+    return {
+      ...raw,
+      version: 3,
+      economy: {
+        ...economyRaw,
+        gachaHistory: Array.isArray(economyRaw.gachaHistory)
+          ? economyRaw.gachaHistory
+          : [],
+      },
     }
   },
 }

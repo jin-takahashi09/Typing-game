@@ -68,7 +68,19 @@ describe('SoundManager', () => {
     manager.setVolume(-1)
     expect(manager.getVolume()).toBe(0)
     manager.setMuted(true)
-    expect(() => manager.playSfx('typeCorrect')).not.toThrow()
+    expect(() => manager.playSfx('gachaSr')).not.toThrow()
+    expect(() => manager.playSfx('gachaSsr')).not.toThrow()
+    expect(() => manager.playSfx('gachaUr')).not.toThrow()
+  })
+
+  it('plays gacha rarity sfx when unlocked and unmuted', async () => {
+    const manager = new SoundManager({
+      createContext: () => new FakeAudioContext() as unknown as AudioContext,
+    })
+    await manager.unlock()
+    expect(() => manager.playSfx('gachaSr')).not.toThrow()
+    expect(() => manager.playSfx('gachaSsr')).not.toThrow()
+    expect(() => manager.playSfx('gachaUr')).not.toThrow()
   })
 
   it('keeps a single shared instance until reset', () => {

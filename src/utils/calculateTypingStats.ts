@@ -16,6 +16,22 @@ export function calculateWpm(correctChars: number, elapsedMs: number): number {
   return Math.round((correctChars / CHARS_PER_WORD / minutes) * 10) / 10
 }
 
+/** 平均キータイプ数（正しいキー / 秒） */
+export function calculateKps(correctChars: number, elapsedMs: number): number {
+  if (
+    typeof correctChars !== 'number' ||
+    !Number.isFinite(correctChars) ||
+    typeof elapsedMs !== 'number' ||
+    !Number.isFinite(elapsedMs) ||
+    correctChars <= 0 ||
+    elapsedMs <= 0
+  ) {
+    return 0
+  }
+  const seconds = elapsedMs / 1000
+  return Math.round((correctChars / seconds) * 10) / 10
+}
+
 export function calculateAccuracy(
   correctChars: number,
   typedChars: number,

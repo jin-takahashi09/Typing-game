@@ -9,6 +9,9 @@ export type SfxId =
   | 'pause'
   | 'resume'
   | 'stageUp'
+  | 'gachaSr'
+  | 'gachaSsr'
+  | 'gachaUr'
 
 export type BgmTrack = 'game' | 'title'
 
@@ -55,6 +58,54 @@ const SFX_TONES: Record<SfxId, ToneSpec | ToneSpec[]> = {
   stageUp: [
     { frequency: 523, durationMs: 70, type: 'square', gain: 0.08 },
     { frequency: 784, durationMs: 100, type: 'square', gain: 0.09 },
+  ],
+  /** SR: short electric zap */
+  gachaSr: {
+    frequency: 2400,
+    durationMs: 70,
+    type: 'sawtooth',
+    gain: 0.07,
+    slideTo: 900,
+  },
+  /** SSR: zap + low impact */
+  gachaSsr: [
+    {
+      frequency: 2200,
+      durationMs: 55,
+      type: 'sawtooth',
+      gain: 0.08,
+      slideTo: 700,
+    },
+    {
+      frequency: 90,
+      durationMs: 140,
+      type: 'triangle',
+      gain: 0.12,
+      slideTo: 55,
+    },
+  ],
+  /** UR: zap + strong confirm */
+  gachaUr: [
+    {
+      frequency: 2600,
+      durationMs: 60,
+      type: 'sawtooth',
+      gain: 0.09,
+      slideTo: 800,
+    },
+    {
+      frequency: 330,
+      durationMs: 90,
+      type: 'square',
+      gain: 0.1,
+    },
+    {
+      frequency: 523,
+      durationMs: 160,
+      type: 'triangle',
+      gain: 0.11,
+      slideTo: 784,
+    },
   ],
 }
 

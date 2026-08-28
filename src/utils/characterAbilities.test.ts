@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { CharacterAbility } from '../config/characters'
+import type { CharacterAbility } from '../config/characterTypes'
 import {
+  applyComboMultiplierBonus,
   applyDamageAbility,
+  applyPerfectScoreBonus,
   applyScoreAbility,
   applyStageCoinAbility,
+  getTimeBonusSeconds,
 } from './characterAbilities'
+import { resolvePlayAbilityModifiers } from './playAbilityModifiers'
 
 const none: CharacterAbility = {
   type: 'none',
@@ -18,16 +22,28 @@ const crimson: CharacterAbility = {
   value: 1.1,
 }
 const azure: CharacterAbility = {
-  type: 'damageReduction',
-  name: '蒼影の守り',
-  description: '-20%',
-  value: 0.2,
+  type: 'scoreMultiplier',
+  name: '蒼影の冴え',
+  description: '+8%',
+  value: 1.08,
 }
 const gold: CharacterAbility = {
   type: 'stageCoinMultiplier',
   name: '黄金の褒賞',
   description: '+20%',
   value: 1.2,
+}
+const moon: CharacterAbility = {
+  type: 'timeBonusSeconds',
+  name: '月読み',
+  description: '+3秒',
+  value: 3,
+}
+const dawn: CharacterAbility = {
+  type: 'comboMultiplierBonus',
+  name: '暁の連鎖',
+  description: '+0.08',
+  value: 0.08,
 }
 
 describe('characterAbilities — 見習い', () => {
@@ -70,20 +86,10 @@ describe('characterAbilities — 紅蓮', () => {
 })
 
 describe('characterAbilities — 蒼影', () => {
-  it('reduces 10 damage to 8', () => {
-    const result = applyDamageAbility(10, azure)
-    expect(result.finalDamage).toBe(8)
-    expect(result.reducedBy).toBe(2)
-  })
-
-  it('keeps minimum damage at 1', () => {
-    expect(applyDamageAbility(1, azure).finalDamage).toBe(1)
-  })
-
-  it('does not apply twice when using already-reduced value with none', () => {
-    const once = applyDamageAbility(10, azure)
-    const again = applyDamageAbility(once.finalDamage, none)
-    expect(again.finalDamage).toBe(8)
+  it('multiplies score by 1.08 (no HP damage reduction)', () => {
+    expect(applyScoreAbility(100, azure).finalScore).toBe(108)
+    expect(applyDamageAbility(10, azure).finalDamage).toBe(10)
+    expect(applyDamageAbility(10, azure).reducedBy).toBe(0)
   })
 })
 
@@ -102,10 +108,42 @@ describe('characterAbilities — 黄金', () => {
   })
 })
 
+describe('characterAbilities — time / combo', () => {
+  it('returns time bonus seconds', () => {
+    expect(getTimeBonusSeconds(moon)).toBe(3)
+    expect(getTimeBonusSeconds(none)).toBe(0)
+  })
+
+  it('adds combo multiplier bonus', () => {
+    expect(applyComboMultiplierBonus(0.1, dawn)).toBeCloseTo(0.18)
+    expect(applyComboMultiplierBonus(0.1, none)).toBe(0.1)
+  })
+})
+
 describe('characterAbilities — safety', () => {
   it('sanitizes negative and non-finite inputs', () => {
     expect(applyScoreAbility(-5, crimson).finalScore).toBe(0)
     expect(applyDamageAbility(Number.NaN, azure).finalDamage).toBe(0)
     expect(applyStageCoinAbility(-3, gold).finalCoins).toBe(0)
+  })
+})
+
+describe('characterAbilities — extended types', () => {
+  it('resolves new ability modifiers without double stacking', () => {
+    const perfect: CharacterAbility = {
+      type: 'perfectScoreBonus',
+      name: '完璧',
+      description: '+20',
+      value: 20,
+    }
+    expect(applyPerfectScoreBonus(50, perfect).finalScore).toBe(70)
+    const shield: CharacterAbility = {
+      type: 'streakShield',
+      name: '盾',
+      description: '1回',
+      value: 1,
+    }
+    expect(resolvePlayAbilityModifiers(shield).streakShieldCharges).toBe(1)
+    expect(resolvePlayAbilityModifiers(none).streakShieldCharges).toBe(0)
   })
 })

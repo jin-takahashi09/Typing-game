@@ -6,6 +6,8 @@ export interface ElapsedClockState {
   gameStartedAtMs: number | null
   pausedTotalMs: number
   pausedAtMs: number | null
+  /** 問題が無い空白時間の一時停止開始（ユーザー一時停止とは別） */
+  idlePausedAtMs?: number | null
 }
 
 export function createElapsedClockState(
@@ -15,6 +17,7 @@ export function createElapsedClockState(
     gameStartedAtMs: startedAtMs,
     pausedTotalMs: 0,
     pausedAtMs: null,
+    idlePausedAtMs: null,
   }
 }
 
@@ -56,8 +59,9 @@ export function computeElapsedMs(
     return 0
   }
 
+  const freezeAt = clock.pausedAtMs ?? clock.idlePausedAtMs ?? null
   const pausedExtra =
-    clock.pausedAtMs === null ? 0 : Math.max(0, nowMs - clock.pausedAtMs)
+    freezeAt === null ? 0 : Math.max(0, nowMs - freezeAt)
 
   return Math.max(
     0,

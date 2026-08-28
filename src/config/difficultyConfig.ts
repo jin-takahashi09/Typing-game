@@ -8,35 +8,20 @@ export type ProblemCategory =
   | 'phrase'
   | 'english'
 
-export type StageUpCondition =
-  | { type: 'score'; every: number }
-  | { type: 'clears'; every: number }
-
 export interface DifficultyConfig {
   id: DifficultyId
   displayName: string
   /** プレイヤー向け短い説明（内部数値は含めない） */
   description: string
-  /** 制限時間（秒） */
+  /** 制限時間（秒）。設定値で変更可能 */
   timeLimitSeconds: number
-  /** 落下速度の基準値 */
+  /**
+   * 落下速度係数（大きいほど速い＝猶予が短い）。
+   * 難しさは落下速度だけで調整する。
+   */
   fallSpeed: number
-  /** ステージごとの落下速度増加量 */
-  fallSpeedPerStage: number
-  /** 落下速度の上限 */
-  maxFallSpeed: number
-  /** 出現間隔の基準（ms） */
-  spawnIntervalMs: number
-  /** ステージごとの出現間隔短縮量（ms） */
-  spawnIntervalDecreasePerStage: number
-  /** 出現間隔の下限（ms） */
-  minSpawnIntervalMs: number
-  /** STAGE1 の同時出現上限 */
+  /** 同時出現上限（寿司打方式では常に 1） */
   maxActiveTargets: number
-  /** 何ステージごとに同時出現上限を +1 するか */
-  maxActiveTargetsIncreaseEveryStages: number
-  /** 同時出現数の最大上限 */
-  maxActiveTargetsCap: number
   /** 問題の最小文字数（ローマ字想定） */
   minChars: number
   /** 問題の最大文字数（ローマ字想定） */
@@ -46,7 +31,11 @@ export interface DifficultyConfig {
   killHeal: number
   scoreMultiplier: number
   comboMultiplier: number
-  stageUpCondition: StageUpCondition
+  /**
+   * 何問撃破ごとにコインマイルストーンを付与するか
+   * （旧ステージクリア相当。UI に STAGE は出さない）
+   */
+  coinMilestoneEvery: number
   showBeginnerGuide: boolean
 }
 
@@ -54,41 +43,27 @@ export const difficultyConfigs: Record<DifficultyId, DifficultyConfig> = {
   trainee: {
     id: 'trainee',
     displayName: '修行生',
-    description: '短い言葉を中心に練習します。ステージが進むと難しくなります。',
+    description: '短い言葉を中心に、ゆっくり落下する敵を迎撃します。',
     timeLimitSeconds: 60,
-    fallSpeed: 0.75,
-    fallSpeedPerStage: 0.08,
-    maxFallSpeed: 1.35,
-    spawnIntervalMs: 2200,
-    spawnIntervalDecreasePerStage: 100,
-    minSpawnIntervalMs: 1200,
+    fallSpeed: 0.55,
     maxActiveTargets: 1,
-    maxActiveTargetsIncreaseEveryStages: 2,
-    maxActiveTargetsCap: 3,
     minChars: 2,
-    maxChars: 8,
+    maxChars: 6,
     problemCategories: ['basic', 'food', 'nature', 'english'],
     missDamage: 8,
     killHeal: 3,
     scoreMultiplier: 1,
     comboMultiplier: 1,
-    stageUpCondition: { type: 'clears', every: 8 },
+    coinMilestoneEvery: 8,
     showBeginnerGuide: true,
   },
   ninja: {
     id: 'ninja',
     displayName: '忍者',
-    description: '拗音や促音を含む言葉に挑戦します。ステージが進むと難しくなります。',
+    description: '普通の単語を、標準速度で迎撃します。',
     timeLimitSeconds: 90,
-    fallSpeed: 1.1,
-    fallSpeedPerStage: 0.12,
-    maxFallSpeed: 1.9,
-    spawnIntervalMs: 1800,
-    spawnIntervalDecreasePerStage: 110,
-    minSpawnIntervalMs: 850,
-    maxActiveTargets: 2,
-    maxActiveTargetsIncreaseEveryStages: 2,
-    maxActiveTargetsCap: 4,
+    fallSpeed: 1.0,
+    maxActiveTargets: 1,
     minChars: 4,
     maxChars: 14,
     problemCategories: ['basic', 'food', 'nature', 'phrase', 'it', 'english'],
@@ -96,23 +71,16 @@ export const difficultyConfigs: Record<DifficultyId, DifficultyConfig> = {
     killHeal: 2,
     scoreMultiplier: 1.25,
     comboMultiplier: 1.5,
-    stageUpCondition: { type: 'clears', every: 6 },
+    coinMilestoneEvery: 6,
     showBeginnerGuide: false,
   },
   master: {
     id: 'master',
     displayName: '忍頭',
-    description: '長い言葉や文章に挑戦します。ステージが進むと難しくなります。',
+    description: '長い単語も混ざる問題を、速い落下で迎撃します。',
     timeLimitSeconds: 120,
-    fallSpeed: 1.35,
-    fallSpeedPerStage: 0.14,
-    maxFallSpeed: 2.2,
-    spawnIntervalMs: 1400,
-    spawnIntervalDecreasePerStage: 100,
-    minSpawnIntervalMs: 650,
-    maxActiveTargets: 3,
-    maxActiveTargetsIncreaseEveryStages: 2,
-    maxActiveTargetsCap: 5,
+    fallSpeed: 1.55,
+    maxActiveTargets: 1,
     minChars: 6,
     maxChars: 28,
     problemCategories: ['nature', 'it', 'phrase', 'english'],
@@ -120,7 +88,7 @@ export const difficultyConfigs: Record<DifficultyId, DifficultyConfig> = {
     killHeal: 1,
     scoreMultiplier: 1.75,
     comboMultiplier: 2,
-    stageUpCondition: { type: 'clears', every: 5 },
+    coinMilestoneEvery: 5,
     showBeginnerGuide: false,
   },
 }
@@ -135,31 +103,7 @@ export function getDifficultyConfig(id: DifficultyId): DifficultyConfig {
   return difficultyConfigs[id]
 }
 
-export function getFallSpeedForStage(
-  config: DifficultyConfig,
-  stage: number,
-): number {
-  const raw = config.fallSpeed + (Math.max(1, stage) - 1) * config.fallSpeedPerStage
-  return Math.min(config.maxFallSpeed, raw)
-}
-
-export function getSpawnIntervalForStage(
-  config: DifficultyConfig,
-  stage: number,
-): number {
-  const raw =
-    config.spawnIntervalMs -
-    (Math.max(1, stage) - 1) * config.spawnIntervalDecreasePerStage
-  return Math.max(config.minSpawnIntervalMs, raw)
-}
-
-export function getMaxActiveTargetsForStage(
-  config: DifficultyConfig,
-  stage: number,
-): number {
-  const safeStage = Math.max(1, stage)
-  const extra = Math.floor(
-    (safeStage - 1) / Math.max(1, config.maxActiveTargetsIncreaseEveryStages),
-  )
-  return Math.min(config.maxActiveTargetsCap, config.maxActiveTargets + extra)
+/** 寿司打方式：常に最大 1 体 */
+export function getMaxActiveTargets(config: DifficultyConfig): number {
+  return config.maxActiveTargets
 }

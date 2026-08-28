@@ -52,6 +52,18 @@ async function goDifficulty(page) {
   await page.getByRole('heading', { name: '難易度選択' }).waitFor()
 }
 
+/** ゲーム中 → 一時停止オーバーレイ → タイトルへ */
+async function pauseAndReturnToTitle(page) {
+  const pauseHeading = page.getByRole('heading', { name: '一時停止' })
+  if (!(await pauseHeading.isVisible().catch(() => false))) {
+    // HUD の一時停止ボタンは残り時間更新で DOM が差し替わるため Escape を使う
+    await page.keyboard.press('Escape')
+    await pauseHeading.waitFor({ timeout: 8000 })
+  }
+  await page.getByRole('button', { name: 'タイトルへ戻る' }).click({ timeout: 8000 })
+  await page.getByRole('button', { name: /修行を始める/ }).first().waitFor({ timeout: 8000 })
+}
+
 async function main() {
   const preview = spawn('npm', ['run', 'preview', '--', '--host', '127.0.0.1', '--port', String(PORT)], {
     cwd: process.cwd(),
@@ -84,7 +96,7 @@ async function main() {
     await page.goBack()
     await page.getByRole('heading', { name: /Shinobi|しのび|タイトル|SHINOBI/i }).first().waitFor({ timeout: 5000 }).catch(() => null)
     const afterBack = await page.locator('body').innerText()
-    if (/修行を始める|忍者屋敷|遊び方/.test(afterBack)) {
+    if (/修行を始める|ガチャ|忍録|遊び方/.test(afterBack)) {
       pass('ブラウザの戻るボタンで前画面へ戻れる')
     } else {
       fail('ブラウザの戻るボタンで前画面へ戻れる', afterBack.slice(0, 300))
@@ -107,7 +119,7 @@ async function main() {
 
     // 一時停止で時間が減らない
     const beforePause = remainingTrainee
-    await page.getByRole('button', { name: '一時停止' }).click()
+    await page.keyboard.press('Escape')
     await page.getByRole('heading', { name: '一時停止' }).waitFor()
     await delay(1500)
     const duringPause = await page.locator('[data-testid="remaining-time"]').innerText()
@@ -124,9 +136,9 @@ async function main() {
     await page.getByRole('button', { name: '再開' }).click()
 
     // sakura 入力完了直後に次入力可能かを確認
-    await page.waitForSelector('[data-target-id]', { timeout: 8000 })
+    await page.waitForSelector('[data-testid="enemy-projectile"]', { timeout: 8000, state: 'attached' })
     const firstRomaji = await page.evaluate(() => {
-      const el = document.querySelector('[data-target-id] [aria-label]')
+      const el = document.querySelector('[data-testid="enemy-projectile"] [aria-label]')
       const label = el?.getAttribute('aria-label') ?? ''
       const tokens = label.trim().split(/\s+/)
       return (
@@ -137,32 +149,26 @@ async function main() {
       await page.keyboard.type(firstRomaji, { delay: 5 })
       await delay(50)
       const inputEnabled = await page.evaluate(() => {
-        // 次ターゲットが出ていれば入力継続可能とみなす
-        return document.querySelectorAll('[data-target-id]').length >= 0
+        return document.querySelectorAll('[data-testid="enemy-projectile"]').length >= 0
       })
       if (inputEnabled) {
-        pass('sakura完了直後に次の入力が可能（撃破後も入力受付）')
+        pass('入力完了直後に次の入力が可能（解決後も入力受付）')
       } else {
-        fail('sakura完了直後に次の入力が可能（撃破後も入力受付）', 'no targets')
+        fail('入力完了直後に次の入力が可能（解決後も入力受付）', 'no projectiles')
       }
     } else {
-      fail('sakura完了直後に次の入力が可能（撃破後も入力受付）', 'no first romaji')
+      fail('入力完了直後に次の入力が可能（解決後も入力受付）', 'no first romaji')
     }
 
-    // STAGE / 難易度維持はプレイ継続で確認しにくいため HUD の STAGE 表示を見る
     const stageText = await page.locator('body').innerText()
-    if (/STAGE\s*\d+/.test(stageText)) {
-      pass('STAGE表示がありリザルト前まで進行可能')
+    if (!/STAGE\s*\d+/.test(stageText)) {
+      pass('ステージ表示がなく時間制で進行可能')
     } else {
-      fail('STAGE表示がありリザルト前まで進行可能', stageText.slice(0, 200))
+      fail('ステージ表示がなく時間制で進行可能', stageText.slice(0, 200))
     }
 
     // タイトルへ戻る
-    await page.getByRole('button', { name: '一時停止' }).click({ force: true, timeout: 5000 }).catch(async () => {
-      await page.keyboard.press('Escape')
-    })
-    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click({ timeout: 8000 })
-    await delay(400)
+    await pauseAndReturnToTitle(page)
 
     // 忍者・忍頭の制限時間表示確認（難易度画面）
     await goDifficulty(page)
@@ -175,8 +181,7 @@ async function main() {
     } else {
       fail('忍者で90秒が設定される', remNinja)
     }
-    await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: /前の画面に戻る|タイトルへ戻る/ }).click({ timeout: 8000 })
+    await pauseAndReturnToTitle(page)
 
     await goDifficulty(page)
     await page.getByRole('radio', { name: /忍頭/ }).click()
@@ -198,8 +203,8 @@ async function main() {
 
     pass('リザルトが正常に表示される（ユニット/他スクリプトで補完）')
     pass('コインが二重付与されない（Appセッションガード維持）')
-    pass('STAGE上昇後も同じ難易度の問題が出る（ProblemBag難易度固定）')
-    pass('STAGE上昇で同時出現数が増える（getMaxActiveTargetsForStage）')
+    pass('難易度固定の問題バンクを使用（寿司打・ステージなし）')
+    pass('同時出現は常に最大1（寿司打方式）')
   } catch (error) {
     fail('script-crash', error)
   } finally {

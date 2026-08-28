@@ -80,6 +80,131 @@
     color: var(--color-char-pending);
   }
 
+  /* 落下する問題テキスト（手裏剣と一体・文字は非回転） */
+  .enemy-falling-text {
+    pointer-events: none;
+    z-index: 2;
+    margin-bottom: 0.35rem;
+    width: max-content;
+    max-width: min(96vw, 28rem);
+    border-radius: 0.65rem;
+    border: 2px solid rgb(241 196 15 / 0.85);
+    background: rgb(0 0 0 / 0.88);
+    padding: 0.4rem 0.55rem 0.5rem;
+    box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
+    text-align: center;
+  }
+
+  .enemy-falling-text__ja {
+    margin-bottom: 0.25rem;
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0.08em;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  .enemy-falling-text__romaji {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    justify-content: center;
+    max-width: none;
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  .enemy-falling-text__romaji > span {
+    display: inline;
+    width: auto;
+    max-width: none;
+    white-space: nowrap;
+  }
+
+  .enemy-falling-text .char-correct {
+    color: var(--color-char-correct);
+  }
+
+  .enemy-falling-text .char-current {
+    color: var(--color-char-current);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .enemy-falling-text .char-pending {
+    color: #e8eef7;
+    opacity: 0.92;
+  }
+
+  @media (min-width: 768px) {
+    .enemy-falling-text {
+      max-width: min(90vw, 32rem);
+      padding: 0.5rem 0.75rem 0.55rem;
+    }
+    .enemy-falling-text__ja {
+      font-size: 1.45rem;
+    }
+    .enemy-falling-text__romaji {
+      font-size: 1.2rem;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .enemy-falling-text {
+      max-width: min(96vw, 20rem);
+      padding: 0.3rem 0.4rem 0.35rem;
+    }
+    .enemy-falling-text__ja {
+      font-size: 1.2rem;
+    }
+    .enemy-falling-text__romaji {
+      font-size: 1.05rem;
+      letter-spacing: 0.08em;
+    }
+  }
+
+  .enemy-projectile--locked .enemy-sprite {
+    filter: drop-shadow(0 0 6px rgb(241 196 15 / 0.65));
+  }
+
+  /* 敵本体側のラベルは補助的に小さめ */
+  .enemy-label {
+    min-width: auto;
+    max-width: min(70vw, 10rem);
+    border-radius: 0.5rem;
+    border: 2px solid var(--color-border-red);
+    background: rgb(0 0 0 / 0.75);
+    padding: 0.2rem 0.4rem;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .enemy-label--locked {
+    border-color: var(--color-accent-yellow);
+  }
+
+  .enemy-label__ja {
+    margin-bottom: 0.1rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-text-soft);
+  }
+
+  .enemy-label__romaji {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+
   .ninja-sprite {
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='30' r='20' fill='%23333'/><rect x='35' y='50' width='30' height='40' fill='%23333'/><rect x='25' y='20' width='50' height='10' fill='%23e74c3c'/><circle cx='43' cy='28' r='3' fill='%23fff'/><circle cx='57' cy='28' r='3' fill='%23fff'/></svg>");
     background-size: contain;
@@ -387,6 +512,327 @@
   .damage-flash {
     animation: flashRed 0.2s;
   }
+
+  /* --- Vertical intercept --- */
+  .enemy-size-small .enemy-sprite {
+    width: 1.65rem;
+    height: 1.65rem;
+  }
+
+  .enemy-size-normal .enemy-sprite {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .enemy-size-large .enemy-sprite {
+    width: 3rem;
+    height: 3rem;
+    filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.45));
+  }
+
+  @media (min-width: 768px) {
+    .enemy-size-small .enemy-sprite {
+      width: 1.9rem;
+      height: 1.9rem;
+    }
+    .enemy-size-normal .enemy-sprite {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+    .enemy-size-large .enemy-sprite {
+      width: 3.5rem;
+      height: 3.5rem;
+    }
+  }
+
+  .enemy-spin {
+    animation: spin 1.05s linear infinite;
+  }
+
+  .enemy-size-small .enemy-spin {
+    animation-duration: 0.7s;
+  }
+
+  .enemy-size-large .enemy-spin {
+    animation-duration: 1.55s;
+  }
+
+  .enemy-spin-impact {
+    animation: spinImpact 0.14s linear infinite;
+  }
+
+  .enemy-label--fade {
+    animation: labelFadeOut 0.28s ease-out forwards;
+  }
+
+  .enemy-visual {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+
+  .projectile-impact--throw .enemy-visual {
+    animation: impactBounceThrow 0.4s ease-out forwards;
+  }
+
+  .projectile-impact--slash .enemy-visual {
+    animation: impactSlashHold 0.4s ease-out forwards;
+  }
+
+  .projectile-hitstop .enemy-visual {
+    animation: impactHitStop 0.06s linear;
+  }
+
+  .enemy-sprite--split-a {
+    animation: splitShardA 0.38s ease-out forwards;
+  }
+
+  .enemy-sprite--split-b {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    animation: splitShardB 0.38s ease-out forwards;
+  }
+
+  .impact-fx {
+    pointer-events: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    z-index: 5;
+  }
+
+  .impact-fx__shock {
+    position: absolute;
+    left: -18px;
+    top: -18px;
+    width: 36px;
+    height: 36px;
+    border: 2px solid rgb(255 255 255 / 0.85);
+    border-radius: 50%;
+    animation: shockRing 0.28s ease-out forwards;
+  }
+
+  .impact-fx__spark {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 3px;
+    height: 10px;
+    background: linear-gradient(to top, #f8fafc, #facc15);
+    border-radius: 1px;
+    transform-origin: center bottom;
+    animation: sparkFly 0.3s ease-out forwards;
+  }
+
+  .impact-fx__spark--1 {
+    transform: rotate(-35deg);
+  }
+  .impact-fx__spark--2 {
+    transform: rotate(20deg);
+  }
+  .impact-fx__spark--3 {
+    transform: rotate(-110deg);
+  }
+  .impact-fx__spark--4 {
+    transform: rotate(95deg);
+  }
+
+  .impact-fx__shard {
+    position: absolute;
+    left: -3px;
+    top: -3px;
+    width: 7px;
+    height: 7px;
+    background: #cbd5e1;
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+    animation: shardFly 0.34s ease-out forwards;
+  }
+
+  .impact-fx__shard--1 {
+    --shard-x: -14px;
+    --shard-y: -10px;
+  }
+  .impact-fx__shard--2 {
+    --shard-x: 12px;
+    --shard-y: -12px;
+  }
+  .impact-fx__shard--3 {
+    --shard-x: 4px;
+    --shard-y: 10px;
+  }
+
+  .ally-shuriken {
+    width: 1.75rem;
+    height: 1.75rem;
+    animation: allyFly 0.38s cubic-bezier(0.2, 0.75, 0.25, 1) forwards;
+  }
+
+  .ally-shuriken__body {
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M50 0 L60 40 L100 50 L60 60 L50 100 L40 60 L0 50 L40 40 Z' fill='%23ecf0f1' stroke='%23f1c40f' stroke-width='3'/></svg>");
+    background-size: contain;
+    background-repeat: no-repeat;
+    animation: allySpinFast 0.18s linear infinite;
+  }
+
+  .ally-shuriken__trail {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 18px;
+    height: 4px;
+    border-radius: 999px;
+    /* 飛行方向へ軌跡を向ける（atan2 の角度） */
+    transform: translate(-90%, -50%) rotate(var(--ally-angle, -90deg));
+    transform-origin: 90% 50%;
+    opacity: 0.55;
+    background: rgb(226 232 240 / 0.55);
+    filter: blur(1px);
+  }
+
+  .ally-shuriken--fire .ally-shuriken__body {
+    filter: drop-shadow(0 0 6px #ff6b4a);
+  }
+
+  .ally-shuriken--fire .ally-shuriken__trail {
+    width: 28px;
+    background: linear-gradient(90deg, transparent, #fb923c, #ef4444);
+    opacity: 0.85;
+    animation: trailPulse 0.2s ease-in-out infinite alternate;
+  }
+
+  .ally-shuriken--water .ally-shuriken__body {
+    filter: drop-shadow(0 0 6px #38bdf8);
+  }
+
+  .ally-shuriken--water .ally-shuriken__trail {
+    width: 26px;
+    background: linear-gradient(90deg, transparent, #7dd3fc, #0ea5e9);
+    opacity: 0.75;
+    animation: trailPulse 0.22s ease-in-out infinite alternate;
+  }
+
+  .ally-shuriken--gold .ally-shuriken__body {
+    filter: drop-shadow(0 0 7px #f1c40f);
+  }
+
+  .ally-shuriken--gold .ally-shuriken__trail {
+    width: 30px;
+    background: linear-gradient(90deg, transparent, #fde68a, #f59e0b);
+    opacity: 0.9;
+    animation: trailPulse 0.18s ease-in-out infinite alternate;
+  }
+
+  .ninja-grounded {
+    transform-origin: 50% 80%;
+  }
+
+  .ninja-action-idle:not(.ninja-reduced) .character-pose-basic {
+    animation: characterBreathe 2.8s ease-in-out infinite;
+  }
+
+  .ninja-action-throwing {
+    animation: attackAnim 0.4s ease-out;
+  }
+
+  .ninja-action-emergency-slashing {
+    animation: slashPose 0.34s ease-out;
+  }
+
+  .ninja-action-damaged {
+    animation: ninjaDamage 0.28s ease-in-out;
+  }
+
+  .sword-draw {
+    position: absolute;
+    right: 8%;
+    top: 18%;
+    width: 4px;
+    height: 42%;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #f8fafc, #94a3b8);
+    transform-origin: 50% 100%;
+    animation: swordDraw 0.28s ease-out forwards;
+    box-shadow: 0 0 8px rgb(255 255 255 / 0.45);
+  }
+
+  .slash-arc {
+    position: absolute;
+    left: 20%;
+    top: -10%;
+    width: 90%;
+    height: 90%;
+    border: 3px solid transparent;
+    border-top-color: #e8f1ff;
+    border-right-color: rgb(232 241 255 / 0.55);
+    border-radius: 50%;
+    transform: rotate(var(--slash-angle, 0deg));
+    transform-origin: 50% 80%;
+    animation: slashArcFade 0.34s ease-out forwards;
+    box-shadow: 0 0 12px rgb(255 255 255 / 0.35);
+  }
+
+  .slash-arc--emergency {
+    border-top-color: #facc15;
+    border-right-color: rgb(250 204 21 / 0.6);
+    box-shadow: 0 0 14px rgb(250 204 21 / 0.45);
+  }
+
+  .slash-arc--echo {
+    opacity: 0.45;
+    animation-duration: 0.42s;
+  }
+
+  .slash-local-glow {
+    position: absolute;
+    left: 50%;
+    top: 20%;
+    width: 70%;
+    height: 70%;
+    transform: translate(-50%, -40%);
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgb(250 204 21 / 0.35),
+      transparent 70%
+    );
+    animation: localGlow 0.36s ease-out forwards;
+    pointer-events: none;
+  }
+
+  .emergency-hint {
+    position: absolute;
+    left: 50%;
+    top: -18%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #facc15;
+    text-shadow: 0 0 6px rgb(0 0 0 / 0.8);
+    white-space: nowrap;
+  }
+
+  .training-moon {
+    animation: moonGlow 4s ease-in-out infinite;
+  }
+
+  .training-cloud {
+    animation: cloudDrift 60s linear infinite;
+  }
+
+  .training-bamboo {
+    background: linear-gradient(180deg, #2f6b3a, #1b3a2f);
+    border-radius: 4px;
+    animation: bambooSway 3.2s ease-in-out infinite;
+    transform-origin: 50% 100%;
+  }
 }
 
 @keyframes attackAnim {
@@ -550,6 +996,249 @@
   }
 }
 
+@keyframes allyFly {
+  0% {
+    transform: translate3d(-50%, -50%, 0) scale(0.8);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(
+        calc(-50% + var(--ally-dx, 0px)),
+        calc(-50% + var(--ally-dy, -40px)),
+        0
+      )
+      scale(1.05);
+    opacity: 0.15;
+  }
+}
+
+@keyframes allySpinFast {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes trailPulse {
+  from {
+    opacity: 0.45;
+    transform: translate(-90%, -50%) rotate(var(--ally-angle, -90deg)) scaleX(0.85);
+  }
+  to {
+    opacity: 0.95;
+    transform: translate(-90%, -50%) rotate(var(--ally-angle, -90deg)) scaleX(1.15);
+  }
+}
+
+@keyframes spinImpact {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes impactBounceThrow {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  28% {
+    transform: translate(
+        calc(var(--impact-bounce-x, 12px) * 0.55),
+        calc(var(--impact-bounce-y, -18px) * 0.55)
+      )
+      scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--impact-bounce-x, 12px), var(--impact-bounce-y, -18px))
+      scale(0.75);
+    opacity: 0;
+  }
+}
+
+@keyframes impactSlashHold {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  18% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+}
+
+@keyframes impactHitStop {
+  0%,
+  100% {
+    filter: brightness(1.4);
+    transform: scale(1.06);
+  }
+}
+
+@keyframes splitShardA {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-14px, -10px) rotate(-40deg);
+    opacity: 0;
+  }
+}
+
+@keyframes splitShardB {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(14px, 8px) rotate(50deg);
+    opacity: 0;
+  }
+}
+
+@keyframes shockRing {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes sparkFly {
+  0% {
+    opacity: 1;
+    height: 10px;
+  }
+  100% {
+    opacity: 0;
+    height: 18px;
+    translate: 0 -16px;
+  }
+}
+
+@keyframes shardFly {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--shard-x, 10px), var(--shard-y, -10px)) rotate(120deg);
+  }
+}
+
+@keyframes labelFadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes swordDraw {
+  0% {
+    opacity: 0;
+    transform: rotate(70deg) scaleY(0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: rotate(-8deg) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(-25deg) scaleY(1.05);
+  }
+}
+
+@keyframes localGlow {
+  0% {
+    opacity: 0.7;
+    transform: translate(-50%, -40%) scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(1.3);
+  }
+}
+
+@keyframes projectileBurst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.4);
+  }
+}
+
+@keyframes slashPose {
+  0% {
+    transform: rotate(0deg);
+  }
+  40% {
+    transform: rotate(-18deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes slashArcFade {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--slash-angle, 0deg)) scale(0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--slash-angle, 0deg)) scale(1.25);
+  }
+}
+
+@keyframes moonGlow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.15);
+  }
+}
+
+@keyframes cloudDrift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes bambooSway {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .enemy-sprite,
   .ninja-attack,
@@ -568,7 +1257,27 @@
   .character-idle-effect--gold::before,
   .character-idle-effect--gold::after,
   .ability-burst,
-  .ability-float-text {
+  .ability-float-text,
+  .training-moon,
+  .training-cloud,
+  .training-bamboo,
+  .ally-shuriken,
+  .ally-shuriken__body,
+  .ally-shuriken__trail,
+  .enemy-spin,
+  .enemy-spin-impact,
+  .slash-arc,
+  .sword-draw,
+  .slash-local-glow,
+  .impact-fx,
+  .impact-fx__spark,
+  .impact-fx__shard,
+  .impact-fx__shock,
+  .projectile-impact-throw,
+  .projectile-impact-slash,
+  .projectile-hitstop,
+  .enemy-split-a,
+  .enemy-split-b {
     animation: none !important;
   }
 }
@@ -586,7 +1295,22 @@ html[data-motion='reduced'] .character-pose-basic,
 html[data-motion='reduced'] .character-accessory--scarf,
 html[data-motion='reduced'] .character-accessory--scroll,
 html[data-motion='reduced'] .character-idle-effect,
-html[data-motion='reduced'] .ability-burst {
+html[data-motion='reduced'] .ability-burst,
+html[data-motion='reduced'] .training-moon,
+html[data-motion='reduced'] .training-cloud,
+html[data-motion='reduced'] .training-bamboo,
+html[data-motion='reduced'] .ally-shuriken,
+html[data-motion='reduced'] .ally-shuriken__body,
+html[data-motion='reduced'] .ally-shuriken__trail,
+html[data-motion='reduced'] .enemy-spin,
+html[data-motion='reduced'] .enemy-spin-impact,
+html[data-motion='reduced'] .slash-arc,
+html[data-motion='reduced'] .sword-draw,
+html[data-motion='reduced'] .slash-local-glow,
+html[data-motion='reduced'] .impact-fx,
+html[data-motion='reduced'] .projectile-impact--throw,
+html[data-motion='reduced'] .projectile-impact--slash,
+html[data-motion='reduced'] .projectile-hitstop {
   animation: none !important;
   transition: none !important;
 }

@@ -1,6 +1,6 @@
 import type { DifficultyId, MotionPreference } from './app'
 import { gameConfig } from '../config/gameConfig'
-import { DEFAULT_CHARACTER_ID } from '../config/characters'
+import { DEFAULT_CHARACTER_ID, type CharacterRarity } from '../config/characters'
 
 export const STORAGE_SCHEMA_VERSION = gameConfig.storageVersion
 
@@ -22,6 +22,7 @@ export interface BestRecord {
   wpm: number
   accuracy: number
   maxCombo: number
+  /** セーブ互換用。ステージ制廃止後はマイルストーン相当の数値を格納 */
   stage: number
   destroyedTargets: number
   elapsedMs: number
@@ -34,6 +35,7 @@ export interface PlayRecord {
   playedAt: string
   difficulty: DifficultyId
   score: number
+  /** セーブ互換用。ステージ制廃止後はマイルストーン相当の数値を格納 */
   stage: number
   destroyedTargets: number
   elapsedMs: number
@@ -51,6 +53,12 @@ export interface PlayRecord {
   endReason?: 'defense' | 'timeout'
   /** そのプレイの制限時間秒（旧データには無い） */
   timeLimitSeconds?: number
+  /** 最大連続ノーミス成功数（任意・旧データには無い） */
+  maxPerfectStreak?: number
+  /** 連続成功で得た追加時間秒（任意） */
+  bonusTimeSeconds?: number
+  /** 連続成功で得たコイン（任意） */
+  streakRewardCoins?: number
 }
 
 export interface PlayComparison {
@@ -63,10 +71,23 @@ export interface PlayComparison {
   isNewBestAccuracy: boolean
 }
 
+export type GachaPullType = 'single' | 'multi'
+
+export interface GachaHistoryEntry {
+  id: string
+  pulledAt: string
+  characterId: string
+  rarity: CharacterRarity
+  wasDuplicate: boolean
+  duplicateCoins: number
+  pullType: GachaPullType
+}
+
 export interface StoredEconomy {
   coins: number
   ownedCharacterIds: string[]
   selectedCharacterId: string
+  gachaHistory: GachaHistoryEntry[]
 }
 
 export interface StoredAppData {
@@ -111,6 +132,7 @@ export function createDefaultStoredData(): StoredAppData {
       coins: 0,
       ownedCharacterIds: [DEFAULT_CHARACTER_ID],
       selectedCharacterId: DEFAULT_CHARACTER_ID,
+      gachaHistory: [],
     },
   }
 }

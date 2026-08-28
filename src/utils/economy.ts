@@ -1,13 +1,13 @@
 import {
   DEFAULT_CHARACTER_ID,
-  getCharacterById,
   isKnownCharacterId,
 } from '../config/characters'
-import type { StoredEconomy } from '../types/records'
+import type { GachaHistoryEntry, StoredEconomy } from '../types/records'
+import { gachaConfig } from '../config/gachaConfig'
+import type { CharacterRarity } from '../config/characters'
 
 export type EconomyErrorCode =
   | 'insufficient_coins'
-  | 'already_owned'
   | 'unknown_character'
   | 'not_owned'
   | 'invalid_amount'
@@ -18,11 +18,14 @@ export interface EconomyMutationResult {
   error?: EconomyErrorCode
 }
 
+const RARITIES: CharacterRarity[] = ['N', 'R', 'SR', 'SSR', 'UR', 'SHINNIN']
+
 export function createDefaultEconomy(): StoredEconomy {
   return {
     coins: 0,
     ownedCharacterIds: [DEFAULT_CHARACTER_ID],
     selectedCharacterId: DEFAULT_CHARACTER_ID,
+    gachaHistory: [],
   }
 }
 
@@ -46,31 +49,6 @@ export function awardCoins(
   }
 }
 
-export function purchaseCharacter(
-  economy: StoredEconomy,
-  characterId: string,
-): EconomyMutationResult {
-  const character = getCharacterById(characterId)
-  if (!character) {
-    return { ok: false, economy, error: 'unknown_character' }
-  }
-  if (economy.ownedCharacterIds.includes(characterId)) {
-    return { ok: false, economy, error: 'already_owned' }
-  }
-  if (economy.coins < character.price) {
-    return { ok: false, economy, error: 'insufficient_coins' }
-  }
-
-  return {
-    ok: true,
-    economy: {
-      ...economy,
-      coins: economy.coins - character.price,
-      ownedCharacterIds: [...economy.ownedCharacterIds, characterId],
-    },
-  }
-}
-
 export function selectCharacter(
   economy: StoredEconomy,
   characterId: string,
@@ -89,6 +67,57 @@ export function selectCharacter(
       selectedCharacterId: characterId,
     },
   }
+}
+
+function normalizeGachaHistory(raw: unknown): GachaHistoryEntry[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  const entries: GachaHistoryEntry[] = []
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+      continue
+    }
+    const record = item as Record<string, unknown>
+    const id = typeof record.id === 'string' ? record.id : ''
+    const pulledAt = typeof record.pulledAt === 'string' ? record.pulledAt : ''
+    const characterId =
+      typeof record.characterId === 'string' && isKnownCharacterId(record.characterId)
+        ? record.characterId
+        : ''
+    const rarity =
+      typeof record.rarity === 'string' &&
+      RARITIES.includes(record.rarity as CharacterRarity)
+        ? (record.rarity as CharacterRarity)
+        : null
+    const pullType =
+      record.pullType === 'single' || record.pullType === 'multi'
+        ? record.pullType
+        : null
+    if (!id || !pulledAt || !characterId || !rarity || !pullType) {
+      continue
+    }
+    const duplicateCoinsRaw =
+      typeof record.duplicateCoins === 'number'
+        ? record.duplicateCoins
+        : Number(record.duplicateCoins)
+    entries.push({
+      id,
+      pulledAt,
+      characterId,
+      rarity,
+      wasDuplicate: Boolean(record.wasDuplicate),
+      duplicateCoins: Number.isFinite(duplicateCoinsRaw)
+        ? Math.max(0, Math.floor(duplicateCoinsRaw))
+        : 0,
+      pullType,
+    })
+    if (entries.length >= gachaConfig.historyLimit) {
+      break
+    }
+  }
+  return entries
 }
 
 /** 不正な economy を安全な初期状態へ正規化 */
@@ -130,6 +159,7 @@ export function normalizeEconomy(raw: unknown): StoredEconomy {
     coins,
     ownedCharacterIds: owned,
     selectedCharacterId,
+    gachaHistory: normalizeGachaHistory(record.gachaHistory),
   }
 }
 
@@ -137,8 +167,6 @@ export function getEconomyErrorMessage(code: EconomyErrorCode | undefined): stri
   switch (code) {
     case 'insufficient_coins':
       return 'コインが足りません'
-    case 'already_owned':
-      return 'すでに所持しています'
     case 'unknown_character':
       return '存在しないキャラクターです'
     case 'not_owned':

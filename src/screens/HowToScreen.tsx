@@ -28,65 +28,61 @@ export function HowToScreen({ onStartTraining, onBack }: HowToScreenProps) {
           <section>
             <h2 className="mb-2 font-bold text-white">基本</h2>
             <p>
-              上空から落ちてくる日本語の下に、代表ローマ字が表示されます。そのローマ字をキーボードで入力し、手裏剣を撃ち落としてください。
+              制限時間内に、表示された日本語をローマ字で入力して敵手裏剣を迎撃します。1問ずつ出題され、成功または失敗のあと次の敵が現れます（寿司打方式）。
+            </p>
+            <p className="mt-2">
+              通常の入力成功では味方手裏剣で迎撃します。接触直前の成功だけ刀で斬ります。操作は基本的にタイピングだけです。
             </p>
             <p className="mt-2">
               一般的なローマ字の表記ゆれに対応しています。例えば「すし」は
               <code className="mx-1 text-[var(--color-accent-yellow)]">sushi</code>
               と
               <code className="mx-1 text-[var(--color-accent-yellow)]">susi</code>
-              の両方で入力できます。画面には代表表記のみが表示されます。
+              の両方で入力できます。
             </p>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bold text-white">コンボ・HP</h2>
+            <h2 className="mb-2 font-bold text-white">時間制・難易度</h2>
             <ul className="list-disc space-y-1 pl-5">
-              <li>連続で撃破するとコンボが伸び、スコア倍率が上がります</li>
-              <li>ミスするとコンボはリセットされます</li>
-              <li>ターゲットが底に到達すると HP が減ります</li>
-              <li>HP が 0 になるとゲームオーバーです</li>
+              <li>ゲームは制限時間制です。時間が 0 になると終了します</li>
+              <li>ステージ進行はありません。難易度は最初から最後まで同じです</li>
+              <li>難しさは主に落下速度で変わります（修行生は遅く、忍頭は速い）</li>
+              <li>問題の長さも難易度設定だけで決まります</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bold text-white">WPM・正確率</h2>
+            <h2 className="mb-2 font-bold text-white">迎撃</h2>
             <ul className="list-disc space-y-1 pl-5">
-              <li>WPM は正しく入力した文字数から算出します</li>
-              <li>正確率は正しい入力数 ÷ 総入力数です（リザルト・記録で確認）</li>
-              <li>一時停止中は経過時間が進まないため、WPM も増えません</li>
+              <li>通常の入力成功では、味方手裏剣を投げて迎撃します</li>
+              <li>接触直前のギリギリ成功だけ、刀で斬って迎撃します</li>
+              <li>成功または失敗の瞬間に現在の敵を消し、次の敵を生成します</li>
+              <li>同時に複数の敵は出ません</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bold text-white">コイン</h2>
+            <h2 className="mb-2 font-bold text-white">HP・スコア</h2>
             <ul className="list-disc space-y-1 pl-5">
-              <li>所持コインはゲーム画面上部に表示されます</li>
-              <li>ステージクリアでコインを獲得すると、上部の数値が加算されます</li>
+              <li>入力が間に合わず敵が到達すると HP が減り、コンボがリセットされます</li>
+              <li>HP が 0 になってもゲームは終了せず、時間切れまで続きます</li>
+              <li>成功するとスコアとコンボが増えます</li>
+              <li>時間内にどれだけ多く倒せるかを競います</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="mb-2 font-bold text-white">一時停止</h2>
+            <h2 className="mb-2 font-bold text-white">その他</h2>
             <ul className="list-disc space-y-1 pl-5">
-              <li>ゲーム中の「一時停止」ボタン、または Esc キー</li>
-              <li>ブラウザのタブを非表示にすると自動で一時停止します</li>
-              <li>タブに戻っても自動再開はしません。手動で再開してください</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="mb-2 font-bold text-white">難易度</h2>
-            <ul className="list-disc space-y-1 pl-5">
-              <li>修行生: 短い問題・ゆったりしたテンポ</li>
-              <li>忍者: 標準。複数ターゲットと中程度の速度</li>
-              <li>忍頭: 長い問題・速い落下・高いダメージ</li>
+              <li>一時停止（ボタン・Esc・タブ非表示）中は敵とタイマーが止まります</li>
+              <li>撃破マイルストーンと成績に応じてコインを獲得できます</li>
             </ul>
           </section>
         </div>
 
         <div className="mt-8 flex flex-col gap-3">
-          <GameButton size="lg" onClick={onStartTraining}>
+          <GameButton variant="primary" size="lg" onClick={onStartTraining}>
             修行を始める
           </GameButton>
         </div>

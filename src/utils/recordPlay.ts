@@ -33,6 +33,15 @@ export function createPlayRecordFromResult(
     ...(result.abilityBonusCoins > 0
       ? { abilityBonusCoins: result.abilityBonusCoins }
       : {}),
+    ...(typeof result.maxPerfectStreak === 'number'
+      ? { maxPerfectStreak: result.maxPerfectStreak }
+      : {}),
+    ...(typeof result.bonusTimeSeconds === 'number'
+      ? { bonusTimeSeconds: result.bonusTimeSeconds }
+      : {}),
+    ...(typeof result.streakRewardCoins === 'number'
+      ? { streakRewardCoins: result.streakRewardCoins }
+      : {}),
     endReason: result.endReason,
     timeLimitSeconds: result.timeLimitSeconds,
   }

@@ -16,7 +16,8 @@ import { ResultScreen } from './screens/ResultScreen'
 import { RecordsScreen } from './screens/RecordsScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { HowToScreen } from './screens/HowToScreen'
-import { CharactersScreen } from './screens/CharactersScreen'
+import { GachaScreen } from './screens/GachaScreen'
+import { ShinobiRecordScreen } from './screens/ShinobiRecordScreen'
 import { loadStoredData, saveStoredData } from './utils/storage'
 import { getSaveErrorMessage, persistPlayResult } from './utils/persistPlayResult'
 import { applyMotionPreference, resolveReducedMotion } from './utils/motionPreference'
@@ -24,9 +25,10 @@ import { clearPlayRecords } from './utils/clearPlayRecords'
 import {
   awardCoins,
   getEconomyErrorMessage,
-  purchaseCharacter,
   selectCharacter,
 } from './utils/economy'
+import { pullGacha, type GachaPullItem, type GachaPullType } from './utils/gacha'
+import type { CharacterRarity } from './config/characters'
 import { getSoundManager } from './audio/SoundManager'
 import {
   useAppHistory,
@@ -42,14 +44,14 @@ export default function App() {
   const [storedData, setStoredData] = useState<StoredAppData>(initialLoad.data)
   const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null)
   const [recordsClearError, setRecordsClearError] = useState<string | null>(null)
-  const [charactersError, setCharactersError] = useState<string | null>(null)
+  const [gachaError, setGachaError] = useState<string | null>(null)
   const [gameSession, setGameSession] = useState(0)
   const [browserBackRequest, setBrowserBackRequest] = useState(0)
   const [playCharacter, setPlayCharacter] = useState<ActivePlayCharacter | null>(
     null,
   )
   const savedPlaySessionsRef = useRef<Set<number>>(new Set())
-  const purchasingRef = useRef(false)
+  const pullingRef = useRef(false)
   const storedDataRef = useRef(storedData)
   const screenRef = useRef(screen)
 
@@ -177,36 +179,52 @@ export default function App() {
     [commitStoredData],
   )
 
-  const handlePurchaseCharacter = useCallback(
-    (characterId: string): boolean => {
-      if (purchasingRef.current) {
-        return false
+  const handleGachaPull = useCallback(
+    (
+      pullType: GachaPullType,
+    ): {
+      ok: boolean
+      items?: GachaPullItem[]
+      peakRarity?: CharacterRarity
+    } => {
+      if (pullingRef.current) {
+        return { ok: false }
       }
-      purchasingRef.current = true
+      pullingRef.current = true
       try {
-        const purchased = purchaseCharacter(
+        const testRng = window.__SHINOBI_KEYS_TEST__?.gachaRng
+        const result = pullGacha(
           storedDataRef.current.economy,
-          characterId,
+          pullType,
+          typeof testRng === 'function' ? testRng : undefined,
         )
-        if (!purchased.ok) {
-          setCharactersError(getEconomyErrorMessage(purchased.error))
-          return false
+        if (!result.ok) {
+          setGachaError(
+            result.error === 'insufficient_coins'
+              ? 'コインが足りません'
+              : 'ガチャに失敗しました',
+          )
+          return { ok: false }
         }
         const ok = commitStoredData({
           ...storedDataRef.current,
-          economy: purchased.economy,
+          economy: result.economy,
         })
         if (!ok) {
-          setCharactersError(
-            '購入結果の保存に失敗しました。画面上は反映されていますが、再読み込みで戻る可能性があります。',
+          setGachaError(
+            'ガチャ結果の保存に失敗しました。画面上は反映されていますが、再読み込みで戻る可能性があります。',
           )
-          return false
+        } else {
+          setGachaError(null)
         }
-        setCharactersError(null)
         getSoundManager().playSfx('uiClick')
-        return true
+        return {
+          ok: true,
+          items: result.items,
+          peakRarity: result.peakRarity,
+        }
       } finally {
-        purchasingRef.current = false
+        pullingRef.current = false
       }
     },
     [commitStoredData],
@@ -216,7 +234,7 @@ export default function App() {
     (characterId: string): boolean => {
       const selected = selectCharacter(storedDataRef.current.economy, characterId)
       if (!selected.ok) {
-        setCharactersError(getEconomyErrorMessage(selected.error))
+        setGachaError(getEconomyErrorMessage(selected.error))
         return false
       }
       const ok = commitStoredData({
@@ -224,12 +242,12 @@ export default function App() {
         economy: selected.economy,
       })
       if (!ok) {
-        setCharactersError(
+        setGachaError(
           '選択の保存に失敗しました。画面上は反映されていますが、再読み込みで戻る可能性があります。',
         )
         return false
       }
-      setCharactersError(null)
+      setGachaError(null)
       getSoundManager().playSfx('uiClick')
       return true
     },
@@ -325,8 +343,9 @@ export default function App() {
         setDifficulty(null)
         setScreen('difficulty')
       }}
+      onOpenGacha={() => setScreen('gacha')}
+      onOpenShinobiRecord={() => setScreen('shinobi-record')}
       onOpenRecords={() => setScreen('records')}
-      onOpenCharacters={() => setScreen('characters')}
       onOpenSettings={() => setScreen('settings')}
       onOpenHowTo={() => setScreen('howto')}
     />
@@ -398,17 +417,36 @@ export default function App() {
           onClearRecords={handleClearRecords}
         />
       )
-    case 'characters':
+    case 'gacha':
       return (
-        <CharactersScreen
-          economy={storedData.economy}
-          error={charactersError}
+        <GachaScreen
+          coins={storedData.economy.coins}
+          error={gachaError}
+          reducedMotion={reducedMotion}
           onBack={() => {
-            setCharactersError(null)
+            setGachaError(null)
             requestBack()
           }}
-          onPurchase={handlePurchaseCharacter}
-          onSelect={handleSelectCharacter}
+          onPull={handleGachaPull}
+        />
+      )
+    case 'shinobi-record':
+      return (
+        <ShinobiRecordScreen
+          economy={storedData.economy}
+          error={gachaError}
+          onBack={() => {
+            setGachaError(null)
+            requestBack()
+          }}
+          onSelect={(characterId) => {
+            setGachaError(null)
+            const ok = handleSelectCharacter(characterId)
+            if (ok) {
+              getSoundManager().playSfx('uiClick')
+            }
+            return ok
+          }}
         />
       )
     case 'settings':
@@ -443,12 +481,19 @@ export default function App() {
           onStartTraining={async () => {
             await unlockAudio()
             getSoundManager().playSfx('uiClick')
+            setGachaError(null)
             setDifficulty(null)
             setScreen('difficulty')
           }}
-          onOpenCharacters={() => {
+          onOpenGacha={() => {
             getSoundManager().playSfx('uiClick')
-            setScreen('characters')
+            setGachaError(null)
+            setScreen('gacha')
+          }}
+          onOpenShinobiRecord={() => {
+            getSoundManager().playSfx('uiClick')
+            setGachaError(null)
+            setScreen('shinobi-record')
           }}
           onOpenRecords={() => {
             getSoundManager().playSfx('uiClick')

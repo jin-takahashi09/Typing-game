@@ -11,7 +11,8 @@ interface TitleScreenProps {
   storedData: StoredAppData
   onStartTraining: () => void
   onOpenRecords: () => void
-  onOpenCharacters: () => void
+  onOpenGacha: () => void
+  onOpenShinobiRecord: () => void
   onOpenSettings: () => void
   onOpenHowTo: () => void
 }
@@ -20,7 +21,8 @@ export function TitleScreen({
   storedData,
   onStartTraining,
   onOpenRecords,
-  onOpenCharacters,
+  onOpenGacha,
+  onOpenShinobiRecord,
   onOpenSettings,
   onOpenHowTo,
 }: TitleScreenProps) {
@@ -35,9 +37,9 @@ export function TitleScreen({
     getCharacterById(DEFAULT_CHARACTER_ID)!
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-8 sm:px-4 sm:py-10">
+    <main className="title-screen flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-6 sm:px-4 sm:py-8">
       <section
-        className="panel-glow relative w-full max-w-3xl overflow-hidden rounded-[var(--radius-xl)] bg-[var(--color-bg-panel)] px-4 py-10 text-center sm:px-6 sm:py-12 md:px-12"
+        className="panel-glow title-panel relative w-full max-w-3xl overflow-hidden rounded-[var(--radius-xl)] bg-[var(--color-bg-panel)] px-4 py-8 text-center sm:px-6 sm:py-10"
         aria-labelledby="app-title"
       >
         <div
@@ -60,33 +62,38 @@ export function TitleScreen({
           ref={headingRef}
           id="app-title"
           tabIndex={-1}
-          className="font-display text-glow-yellow relative mb-6 text-3xl leading-tight text-[var(--color-accent-yellow)] outline-none md:text-5xl"
+          className="font-display text-glow-yellow relative mb-4 text-3xl leading-tight text-[var(--color-accent-yellow)] outline-none md:text-5xl"
         >
           {appConfig.name}
         </h1>
 
-        <p className="relative mb-6 text-base text-[var(--color-text-soft)] sm:mb-8 sm:text-lg md:text-2xl">
+        <p className="relative mb-5 text-base text-[var(--color-text-soft)] sm:text-lg">
           {appConfig.tagline}
         </p>
 
-        <div className="relative mb-6 flex flex-col items-center gap-2">
-          <CharacterPreview
-            characterId={selectedCharacter.id}
-            size="lg"
-          />
-          <p className="text-sm text-[var(--color-text-soft)]">
+        <div className="relative mx-auto mb-5 flex flex-col items-center gap-2">
+          <div data-testid="title-selected-character">
+            <CharacterPreview characterId={selectedCharacter.id} size="lg" />
+          </div>
+          <p
+            className="text-sm text-[var(--color-text-soft)]"
+            data-testid="title-selected-name"
+          >
             {selectedCharacter.name}
           </p>
           <p className="text-xs text-[var(--color-accent-yellow)] sm:text-sm">
             {formatAbilityShort(selectedCharacter.ability)}
           </p>
-          <p className="font-display text-sm text-[var(--color-accent-yellow)]">
+          <p
+            className="font-display text-sm text-[var(--color-accent-yellow)]"
+            data-testid="title-coins"
+          >
             コイン {storedData.economy.coins}
           </p>
         </div>
 
         {hasBestScores && (
-          <div className="relative mx-auto mb-8 max-w-md rounded border border-[var(--color-border-blue)] bg-black/30 p-3 text-left">
+          <div className="relative mx-auto mb-6 max-w-md rounded border border-[var(--color-border-blue)] bg-black/30 p-3 text-left">
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
               ベストスコア
             </p>
@@ -110,21 +117,28 @@ export function TitleScreen({
           </div>
         )}
 
-        <div className="relative mb-6 flex justify-center">
+        <div className="relative mb-5 flex justify-center">
           <GameButton size="lg" onClick={onStartTraining}>
             修行を始める
           </GameButton>
         </div>
 
         <nav
-          className="relative mx-auto flex max-w-md flex-col gap-3"
+          className="title-nav relative mx-auto grid max-w-lg grid-cols-1 gap-3 sm:grid-cols-2"
           aria-label="メインメニュー"
         >
-          <GameButton variant="secondary" onClick={onOpenCharacters}>
-            忍者屋敷
+          <GameButton variant="secondary" onClick={onOpenGacha}>
+            ガチャ
           </GameButton>
           <GameButton variant="secondary" onClick={onOpenRecords}>
             プレイ記録
+          </GameButton>
+          <GameButton
+            variant="secondary"
+            onClick={onOpenShinobiRecord}
+            data-testid="title-open-shinobi-record"
+          >
+            忍録
           </GameButton>
           <GameButton variant="ghost" onClick={onOpenHowTo}>
             遊び方

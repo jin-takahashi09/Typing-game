@@ -97,7 +97,7 @@
 
   .enemy-falling-text__ja {
     margin-bottom: 0.25rem;
-    font-size: clamp(1.25rem, 6.5vw, 2rem);
+    font-size: 1.35rem;
     font-weight: 800;
     line-height: 1.25;
     letter-spacing: 0.08em;
@@ -112,10 +112,10 @@
     justify-content: center;
     max-width: none;
     font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-    font-size: clamp(1.05rem, 5.5vw, 1.65rem);
+    font-size: 1.15rem;
     font-weight: 700;
     line-height: 1.35;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     white-space: nowrap;
     word-break: keep-all;
     overflow-wrap: normal;
@@ -126,24 +126,6 @@
     width: auto;
     max-width: none;
     white-space: nowrap;
-  }
-
-  .enemy-falling-text--short .enemy-falling-text__romaji {
-    font-size: clamp(1.1rem, 5.8vw, 1.7rem);
-  }
-
-  .enemy-falling-text--medium .enemy-falling-text__romaji {
-    font-size: clamp(0.95rem, 4.8vw, 1.4rem);
-    letter-spacing: 0.1em;
-  }
-
-  .enemy-falling-text--long .enemy-falling-text__romaji {
-    font-size: clamp(0.72rem, 3.4vw, 1.15rem);
-    letter-spacing: 0.05em;
-  }
-
-  .enemy-falling-text--long .enemy-falling-text__ja {
-    font-size: clamp(1.05rem, 5vw, 1.55rem);
   }
 
   .enemy-falling-text .char-correct {
@@ -166,6 +148,12 @@
       max-width: min(90vw, 32rem);
       padding: 0.5rem 0.75rem 0.55rem;
     }
+    .enemy-falling-text__ja {
+      font-size: 1.45rem;
+    }
+    .enemy-falling-text__romaji {
+      font-size: 1.2rem;
+    }
   }
 
   @media (max-width: 360px) {
@@ -174,15 +162,11 @@
       padding: 0.3rem 0.4rem 0.35rem;
     }
     .enemy-falling-text__ja {
-      font-size: clamp(1.05rem, 5.5vw, 1.3rem);
+      font-size: 1.2rem;
     }
     .enemy-falling-text__romaji {
-      font-size: clamp(0.9rem, 4.6vw, 1.15rem);
+      font-size: 1.05rem;
       letter-spacing: 0.08em;
-    }
-    .enemy-falling-text--long .enemy-falling-text__romaji {
-      font-size: clamp(0.65rem, 3.1vw, 0.95rem);
-      letter-spacing: 0.04em;
     }
   }
 

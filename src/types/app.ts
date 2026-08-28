@@ -12,4 +12,5 @@ export type AppScreen =
   | 'records'
   | 'settings'
   | 'howto'
-  | 'characters'
+  | 'gacha'
+  | 'shinobi-record'

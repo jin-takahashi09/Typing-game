@@ -59,9 +59,9 @@ Shinobi Keys では、**ゲームとして楽しめる体験** にすること�
 
 | ホーム画面 | ゲーム画面 |
 | :---: | :---: |
-| <img src="docs/screenshots/pc-home.png" alt="ホーム画面" width="720"> | <img src="docs/screenshots/pc-gameplay.png" alt="ゲーム画面" width="720"> |
+| <img src="docs/screenshots/pc-home.png?v=20260828" alt="ホーム画面" width="720"> | <img src="docs/screenshots/pc-gameplay.png?v=20260828" alt="ゲーム画面" width="720"> |
 | ガチャ画面 | 忍録画面 |
-| <img src="docs/screenshots/pc-gacha.png" alt="ガチャ画面" width="720"> | <img src="docs/screenshots/pc-shinobi-record.png" alt="忍録画面" width="720"> |
+| <img src="docs/screenshots/pc-gacha.png?v=20260828" alt="ガチャ画面" width="720"> | <img src="docs/screenshots/pc-shinobi-record.png?v=20260828" alt="忍録画面" width="720"> |
 
 ---
 

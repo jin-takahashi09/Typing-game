@@ -13,7 +13,7 @@ const PORT = 4193
 const BASE = `http://127.0.0.1:${PORT}`
 const STORAGE_KEY = 'shinobi-keys-data'
 const SHOT_DIR = join(process.cwd(), 'test-results', 'shinobi-record-page')
-const CHARACTER_COUNT = 16
+const CHARACTER_COUNT = 121
 
 const results = { passed: [], failed: [] }
 
@@ -144,7 +144,7 @@ async function runChecks() {
     await page.waitForSelector('[data-testid="shinobi-record-owned-count"]')
 
     const ownedText = await page.getByTestId('shinobi-record-owned-count').innerText()
-    if (ownedText.includes('4 / 16')) pass('page: owned count display')
+    if (ownedText.includes('4 / 121')) pass('page: owned count display')
     else fail('page: owned count display', ownedText)
 
     await page.screenshot({
@@ -153,11 +153,11 @@ async function runChecks() {
     })
 
     const cardCount = await page.getByTestId(/shinobi-record-card-/).count()
-    if (cardCount === CHARACTER_COUNT) pass('page: all 16 characters')
-    else fail('page: all 16 characters', `count=${cardCount}`)
+    if (cardCount === CHARACTER_COUNT) pass(`page: all ${CHARACTER_COUNT} characters`)
+    else fail(`page: all ${CHARACTER_COUNT} characters`, `count=${cardCount}`)
 
     const gridCols = await page.evaluate(() => {
-      const grid = document.querySelector('[data-testid="shinobi-record-grid"]')
+      const grid = document.querySelector('.shinobi-record-grid--catalog')
       return grid
         ? getComputedStyle(grid).gridTemplateColumns.split(' ').length
         : 0
@@ -241,7 +241,7 @@ async function runChecks() {
     await page.getByTestId('title-open-shinobi-record').click()
     await page.waitForSelector('[data-testid="shinobi-record-grid"]')
     const mobileCols = await page.evaluate(() => {
-      const grid = document.querySelector('[data-testid="shinobi-record-grid"]')
+      const grid = document.querySelector('.shinobi-record-grid--catalog')
       return grid
         ? getComputedStyle(grid).gridTemplateColumns.split(' ').length
         : 0
@@ -255,6 +255,77 @@ async function runChecks() {
     })
     if (mobileCols === 2 && !scrollX) pass('page: mobile 2 columns no scroll')
     else fail('page: mobile 2 columns no scroll', `cols=${mobileCols} scroll=${scrollX}`)
+
+    // 神忍カード専用スクリーンショット
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.evaluate(
+      ({ key, ownedId, unownedId }) => {
+        const raw = localStorage.getItem(key)
+        if (!raw) return
+        const data = JSON.parse(raw)
+        const owned = new Set(data.economy?.ownedCharacterIds ?? ['shinobi-default'])
+        owned.add(ownedId)
+        owned.delete(unownedId)
+        data.economy = {
+          ...data.economy,
+          ownedCharacterIds: [...owned],
+        }
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      {
+        key: STORAGE_KEY,
+        ownedId: 'shinobi-ext-100',
+        unownedId: 'shinobi-ext-101',
+      },
+    )
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.getByTestId('title-open-shinobi-record').click()
+    await page.waitForFunction(() => window.location.hash === '#shinobi-record')
+    await page.waitForSelector('[data-testid="shinobi-record-section-shinnin"]', {
+      timeout: 15000,
+    })
+
+    const ownedCard = page.getByTestId('shinobi-record-card-shinobi-ext-100')
+    const unownedCard = page.getByTestId('shinobi-record-card-shinobi-ext-101')
+    await ownedCard.scrollIntoViewIfNeeded()
+    await ownedCard.screenshot({ path: join(SHOT_DIR, 'shinnin-owned-card.png') })
+
+    const ownedName = await ownedCard.locator('.shinobi-record-card__name').innerText()
+    const ownedRarity = await ownedCard.locator('.shinobi-record-card__rarity').innerText()
+    const ownedColored = await ownedCard.evaluate((el) => {
+      const figure = el.querySelector('.shinobi-record-card__figure--unowned')
+      return figure === null
+    })
+    if (ownedName === '天津甦' && ownedRarity === '神忍' && ownedColored) {
+      pass('shinnin: owned card display')
+    } else {
+      fail('shinnin: owned card display', `${ownedName} / ${ownedRarity} / colored=${ownedColored}`)
+    }
+
+    await unownedCard.scrollIntoViewIfNeeded()
+    await unownedCard.screenshot({ path: join(SHOT_DIR, 'shinnin-unowned-card.png') })
+
+    const unownedName = await unownedCard.locator('.shinobi-record-card__name').innerText()
+    const unownedRarity = await unownedCard.locator('.shinobi-record-card__rarity').innerText()
+    const shinninUnownedGray = await unownedCard.evaluate((el) => {
+      const figure = el.querySelector('.shinobi-record-card__figure--unowned')
+      if (!figure) return false
+      const filter = getComputedStyle(figure).filter
+      return filter.includes('grayscale')
+    })
+    if (unownedName === '未発見' && unownedRarity === '神忍' && shinninUnownedGray) {
+      pass('shinnin: unowned card display')
+    } else {
+      fail('shinnin: unowned card display', `${unownedName} / ${unownedRarity} / gray=${shinninUnownedGray}`)
+    }
+    await unownedCard.click()
+    await page.waitForSelector('[data-testid="shinobi-record-detail"][data-owned="false"]')
+    if (await page.getByTestId('shinobi-record-select').count()) {
+      fail('shinnin: unowned not selectable', 'select visible')
+    } else {
+      pass('shinnin: unowned not selectable')
+    }
+    await page.getByTestId('shinobi-record-detail-close').click()
 
     await context.close()
 

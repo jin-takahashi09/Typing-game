@@ -1,6 +1,7 @@
 import { useEffect, useId } from 'react'
 import { createPortal } from 'react-dom'
 import type { CharacterRarity } from '../../config/characters'
+import { formatRarityLabel, rarityCssSuffix } from '../../config/rarityLabels'
 import type { GachaPullItem } from '../../utils/gacha'
 import { CharacterPreview } from '../common/CharacterPreview'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
@@ -43,7 +44,7 @@ export function GachaResultModal({
       className={[
         'gacha-portal',
         'gacha-result-portal',
-        `gacha-result-portal--peak-${peakRarity.toLowerCase()}`,
+        `gacha-result-portal--peak-${rarityCssSuffix(peakRarity)}`,
       ].join(' ')}
       data-testid="gacha-result-portal"
     >
@@ -76,14 +77,14 @@ export function GachaResultModal({
               key={`${item.characterId}-${itemIndex}`}
               className={[
                 'gacha-result-card',
-                `gacha-result-card--${item.rarity.toLowerCase()}`,
+                `gacha-result-card--${rarityCssSuffix(item.rarity)}`,
               ].join(' ')}
               data-testid="gacha-result-card"
               data-rarity={item.rarity}
               data-duplicate={item.wasDuplicate ? 'true' : 'false'}
             >
-              <p className="gacha-result-card__rarity" aria-label={`レアリティ ${item.rarity}`}>
-                {item.rarity}
+              <p className="gacha-result-card__rarity" aria-label={`レアリティ ${formatRarityLabel(item.rarity)}`}>
+                {formatRarityLabel(item.rarity)}
               </p>
               <div className="gacha-result-card__figure">
                 <CharacterPreview

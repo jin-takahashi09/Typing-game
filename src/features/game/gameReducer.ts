@@ -166,7 +166,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         combo: 0,
         showMissFeedback: true,
         currentProblemHadMiss: true,
-        perfectStreakCount: 0,
+        perfectStreakCount: action.preservePerfectStreak
+          ? state.perfectStreakCount
+          : 0,
       }
 
     case 'CLEAR_MISS_FEEDBACK':
@@ -201,7 +203,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       let lastStreakRewardEventId = state.lastStreakRewardEventId
 
       if (action.streak.kind === 'skip-miss') {
-        perfectStreakCount = 0
+        perfectStreakCount = action.streak.preserveStreak
+          ? state.perfectStreakCount
+          : 0
       } else if (action.streak.kind === 'apply') {
         const { result, eventId } = action.streak
         const reached =

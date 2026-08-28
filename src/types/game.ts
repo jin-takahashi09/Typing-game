@@ -108,7 +108,7 @@ export interface ResultViewModel {
 }
 
 export type StreakResolvePayload =
-  | { kind: 'skip-miss' }
+  | { kind: 'skip-miss'; preserveStreak?: boolean }
   | {
       kind: 'apply'
       result: StreakRewardResult
@@ -124,7 +124,7 @@ export type GameAction =
       typedLength: number
       matchState: EnemyProjectile['matchState']
     }
-  | { type: 'TYPE_MISS' }
+  | { type: 'TYPE_MISS'; preservePerfectStreak?: boolean }
   | { type: 'CLEAR_MISS_FEEDBACK' }
   | {
       type: 'RESOLVE_PROJECTILE'

@@ -50,7 +50,6 @@ describe('gacha', () => {
       ...base,
       ownedCharacterIds: [...base.ownedCharacterIds, 'shinobi-midori'],
     }
-    // Force N then pick midori (first N char after default depends on filter order)
     const nChars = getCharactersByRarity('N')
     const midoriIndex = nChars.findIndex((c) => c.id === 'shinobi-midori')
     expect(midoriIndex).toBeGreaterThanOrEqual(0)
@@ -65,16 +64,17 @@ describe('gacha', () => {
   })
 
   it('maps rarity rates from cumulative thresholds', () => {
-    expect(rollRarity(gachaConfig.rarityRates, () => 0)).toBe('N')
-    expect(rollRarity(gachaConfig.rarityRates, () => 0.54)).toBe('N')
-    expect(rollRarity(gachaConfig.rarityRates, () => 0.55)).toBe('R')
-    expect(rollRarity(gachaConfig.rarityRates, () => 0.8)).toBe('SR')
-    expect(rollRarity(gachaConfig.rarityRates, () => 0.92)).toBe('SSR')
-    expect(rollRarity(gachaConfig.rarityRates, () => 0.99)).toBe('UR')
+    expect(rollRarity(() => 0)).toBe('N')
+    expect(rollRarity(() => 0.548)).toBe('N')
+    expect(rollRarity(() => 0.549)).toBe('R')
+    expect(rollRarity(() => 0.799)).toBe('SR')
+    expect(rollRarity(() => 0.919)).toBe('SSR')
+    expect(rollRarity(() => 0.979)).toBe('UR')
+    expect(rollRarity(() => 0.999)).toBe('SHINNIN')
   })
 
   it('picks only characters of requested rarity', () => {
-    for (const rarity of ['N', 'R', 'SR', 'SSR', 'UR'] as const) {
+    for (const rarity of ['N', 'R', 'SR', 'SSR', 'UR', 'SHINNIN'] as const) {
       const picked = pickCharacterOfRarity(rarity, characters, () => 0)
       expect(picked?.rarity).toBe(rarity)
     }
@@ -87,5 +87,36 @@ describe('gacha', () => {
     economy = first.economy!
     expect(economy.ownedCharacterIds.length).toBeGreaterThanOrEqual(1)
     expect(economy.gachaHistory[0]?.pullType).toBe('single')
+  })
+
+  it('uses SHINNIN peak rarity in multi pull when included', () => {
+    const economy = awardCoins(createDefaultEconomy(), 900).economy
+    const shinninChars = getCharactersByRarity('SHINNIN')
+    const pickRoll = 0.5 / shinninChars.length
+    const rng = sequenceRng([
+      0.999,
+      pickRoll,
+      0.01,
+      0,
+      0.01,
+      0,
+      0.01,
+      0,
+      0.01,
+      0,
+      0.01,
+      0,
+      0.01,
+      0,
+      0.01,
+      0,
+      0.01,
+      0,
+      0.01,
+      0,
+    ])
+    const result = pullGacha(economy, 'multi', rng)
+    expect(result.ok).toBe(true)
+    expect(result.peakRarity).toBe('SHINNIN')
   })
 })

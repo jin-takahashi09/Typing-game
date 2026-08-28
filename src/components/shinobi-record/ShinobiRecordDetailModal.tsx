@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import {
   type CharacterDefinition,
 } from '../../config/characters'
+import { formatRarityLabel, rarityCssSuffix } from '../../config/rarityLabels'
 import { CharacterPreview } from '../common/CharacterPreview'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 
@@ -53,11 +54,11 @@ export function ShinobiRecordDetailModal({
         <p
           className={[
             'shinobi-record-detail__rarity',
-            `shinobi-record-detail__rarity--${character.rarity.toLowerCase()}`,
+            `shinobi-record-detail__rarity--${rarityCssSuffix(character.rarity)}`,
             owned ? '' : 'shinobi-record-detail__rarity--muted',
           ].join(' ')}
         >
-          {character.rarity}
+          {formatRarityLabel(character.rarity)}
         </p>
         <div
           className={[

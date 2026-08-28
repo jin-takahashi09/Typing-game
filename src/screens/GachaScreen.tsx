@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import type { CharacterRarity } from '../config/characters'
-import { gachaConfig, RARITY_ORDER } from '../config/gachaConfig'
+import { gachaConfig, RARITY_ORDER, formatRatePercent } from '../config/gachaConfig'
+import { formatRarityLabel } from '../config/rarityLabels'
 import { BackButton } from '../components/common/BackButton'
 import { GachaScrollShrine } from '../components/gacha/GachaScrollShrine'
 import { GachaRevealFx } from '../components/gacha/GachaRevealFx'
@@ -20,10 +21,6 @@ interface GachaScreenProps {
     items?: GachaPullItem[]
     peakRarity?: CharacterRarity
   }
-}
-
-function formatRatePercent(rate: number): string {
-  return `${Math.round(rate * 100)}%`
 }
 
 export function GachaScreen({
@@ -167,7 +164,8 @@ export function GachaScreen({
                   `gacha-rates__item--${rarity.toLowerCase()}`,
                 ].join(' ')}
               >
-                {rarity} {formatRatePercent(gachaConfig.rarityRates[rarity])}
+                {formatRarityLabel(rarity)}{' '}
+                {formatRatePercent(rarity)}
               </li>
             ))}
           </ul>

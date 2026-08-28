@@ -63,12 +63,12 @@ import {
   type PlayCoinTracker,
 } from '../utils/coinRewards'
 import {
-  applyComboMultiplierBonus,
   applyDamageAbility,
+  applyPerfectScoreBonus,
   applyScoreAbility,
   applyStageCoinAbility,
-  getTimeBonusSeconds,
 } from '../utils/characterAbilities'
+import { resolvePlayAbilityModifiers } from '../utils/playAbilityModifiers'
 import {
   isEmergencySlash,
   playerActionFromIntercept,
@@ -273,15 +273,17 @@ export function GameScreen({
   onAbandonToTitle,
 }: GameScreenProps) {
   const config = useMemo(() => getDifficultyConfig(difficulty), [difficulty])
+  const playModifiers = useMemo(
+    () => resolvePlayAbilityModifiers(playCharacter.ability),
+    [playCharacter.ability],
+  )
   const effectiveTimeLimitSeconds = useMemo(
-    () =>
-      config.timeLimitSeconds + getTimeBonusSeconds(playCharacter.ability),
-    [config.timeLimitSeconds, playCharacter.ability],
+    () => config.timeLimitSeconds + playModifiers.timeBonusSeconds,
+    [config.timeLimitSeconds, playModifiers.timeBonusSeconds],
   )
   const effectiveComboMultiplier = useMemo(
-    () =>
-      applyComboMultiplierBonus(config.comboMultiplier, playCharacter.ability),
-    [config.comboMultiplier, playCharacter.ability],
+    () => config.comboMultiplier + playModifiers.comboMultiplierBonus,
+    [config.comboMultiplier, playModifiers.comboMultiplierBonus],
   )
   const [state, dispatch] = useReducer(gameReducer, undefined, () => ({
     ...createInitialGameState(difficulty, gameConfig.maxHealth),
@@ -322,6 +324,9 @@ export function GameScreen({
   /** SPAWN dispatch 後〜state 反映前の二重生成を防ぐ */
   const spawnPendingRef = useRef(false)
   const streakAwardedEventsRef = useRef<Set<string>>(new Set())
+  const streakShieldRemainingRef = useRef(0)
+  const streakShieldUsedOnProblemRef = useRef(false)
+  const playModifiersRef = useRef(playModifiers)
   const areaSizeRef = useRef(areaSize)
   const problemBagRef = useRef<ProblemBag | null>(null)
   if (problemBagRef.current === null) {
@@ -331,6 +336,32 @@ export function GameScreen({
   useEffect(() => {
     abilityBonusScoreRef.current = 0
     abilityBonusCoinsRef.current = 0
+    streakShieldRemainingRef.current = playModifiers.streakShieldCharges
+    streakShieldUsedOnProblemRef.current = false
+  }, [playSessionId, playModifiers.streakShieldCharges])
+
+  useEffect(() => {
+    playModifiersRef.current = playModifiers
+  }, [playModifiers])
+
+  const streakAbilityOptions = useMemo(
+    () => ({
+      milestoneReduction: playModifiers.streakMilestoneReduction,
+      coinMultiplier: playModifiers.streakRewardCoinMultiplier,
+      timeDoubleChance: playModifiers.timeRewardDoubleChance,
+    }),
+    [playModifiers],
+  )
+
+  const dispatchTypeMiss = useCallback(() => {
+    if (streakShieldRemainingRef.current > 0) {
+      streakShieldRemainingRef.current -= 1
+      streakShieldUsedOnProblemRef.current = true
+      dispatch({ type: 'TYPE_MISS', preservePerfectStreak: true })
+      return
+    }
+    streakShieldUsedOnProblemRef.current = false
+    dispatch({ type: 'TYPE_MISS' })
   }, [])
 
   useEffect(() => {
@@ -942,7 +973,7 @@ export function GameScreen({
         projectileId = findMostDangerousProjectileId(candidates)
         if (!projectileId) {
           getSoundManager().playSfx('typeMiss')
-          dispatch({ type: 'TYPE_MISS' })
+          dispatchTypeMiss()
           return
         }
       }
@@ -950,7 +981,7 @@ export function GameScreen({
       const projectile = living.find((p) => p.id === projectileId)
       if (!projectile || projectile.state === 'hit') {
         getSoundManager().playSfx('typeMiss')
-        dispatch({ type: 'TYPE_MISS' })
+        dispatchTypeMiss()
         return
       }
 
@@ -958,7 +989,7 @@ export function GameScreen({
       const matchResult = processRomajiInput(projectile.matchState, problem, char)
       if (!matchResult.accepted) {
         getSoundManager().playSfx('typeMiss')
-        dispatch({ type: 'TYPE_MISS' })
+        dispatchTypeMiss()
         return
       }
 
@@ -1031,8 +1062,17 @@ export function GameScreen({
           comboMultiplier: effectiveComboMultiplier,
         })
         const applied = applyScoreAbility(baseGain, playCharacter.ability)
-        abilityBonusScoreRef.current += applied.bonusScore
-        if (applied.bonusScore > 0) {
+        const hadMissBeforeClear = stateRef.current.currentProblemHadMiss
+        const withPerfect = hadMissBeforeClear
+          ? {
+              finalScore: applied.finalScore,
+              bonusScore: applied.bonusScore,
+            }
+          : applyPerfectScoreBonus(applied.finalScore, playCharacter.ability)
+        const finalScoreGain = withPerfect.finalScore
+        abilityBonusScoreRef.current +=
+          applied.bonusScore + (withPerfect.bonusScore - applied.bonusScore)
+        if (applied.bonusScore > 0 || withPerfect.bonusScore > applied.bonusScore) {
           setShowScoreBurst(true)
           setShowScoreAbilityHint(true)
           schedule(() => {
@@ -1123,17 +1163,24 @@ export function GameScreen({
 
         const hadMiss = stateRef.current.currentProblemHadMiss
         const streakPayload = hadMiss
-          ? ({ kind: 'skip-miss' } as const)
+          ? ({
+              kind: 'skip-miss',
+              preserveStreak: streakShieldUsedOnProblemRef.current,
+            } as const)
           : ({
               kind: 'apply' as const,
               eventId: `${projectile.id}-streak`,
-              result: applyPerfectClear({
-                currentCount: stateRef.current.perfectStreakCount,
-                maxCount: STREAK_REWARD_CONFIG.cycleLength,
-                totalBonusSeconds: stateRef.current.totalBonusSeconds,
-                totalRewardCoins: stateRef.current.streakRewardCoins,
-              }),
+              result: applyPerfectClear(
+                {
+                  currentCount: stateRef.current.perfectStreakCount,
+                  maxCount: STREAK_REWARD_CONFIG.cycleLength,
+                  totalBonusSeconds: stateRef.current.totalBonusSeconds,
+                  totalRewardCoins: stateRef.current.streakRewardCoins,
+                },
+                streakAbilityOptions,
+              ),
             } as const)
+        streakShieldUsedOnProblemRef.current = false
 
         if (streakPayload.kind === 'apply') {
           const { result, eventId } = streakPayload
@@ -1159,7 +1206,7 @@ export function GameScreen({
           type: 'RESOLVE_PROJECTILE',
           projectileId: projectile.id,
           action,
-          scoreGain: applied.finalScore,
+          scoreGain: finalScoreGain,
           heal: config.killHeal,
           streak: streakPayload,
         })
@@ -1202,7 +1249,7 @@ export function GameScreen({
         matchState: matchResult.nextState,
       })
     },
-    [config, schedule, reducedMotion, playCharacter, spawnFromDirector, onAwardStageCoins, effectiveComboMultiplier],
+    [config, schedule, reducedMotion, playCharacter, spawnFromDirector, onAwardStageCoins, effectiveComboMultiplier, dispatchTypeMiss, streakAbilityOptions],
   )
 
   const hudStats = useMemo(() => {

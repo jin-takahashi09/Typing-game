@@ -3,9 +3,15 @@ import {
   type CharacterDefinition,
   type CharacterRarity,
 } from '../config/characters'
+import { resolveCharacter } from '../config/characters'
 import { gachaConfig, RARITY_ORDER } from '../config/gachaConfig'
 import type { GachaHistoryEntry, StoredEconomy } from '../types/records'
 import { generatePlayId } from '../types/records'
+import {
+  applyGachaDuplicateCoinModifier,
+  pickPeakRarity,
+  resolvePlayAbilityModifiers,
+} from './playAbilityModifiers'
 
 export type GachaRng = () => number
 
@@ -42,19 +48,19 @@ export function getGachaPool(): readonly CharacterDefinition[] {
   return characters
 }
 
+/** 整数ウェイトによるレア度抽選（浮動小数点誤差なし） */
 export function rollRarity(
-  rates: Record<CharacterRarity, number> = gachaConfig.rarityRates,
   rng: GachaRng = defaultRng,
 ): CharacterRarity {
-  const roll = Math.min(0.999999, Math.max(0, rng()))
+  const roll = Math.floor(rng() * gachaConfig.rarityWeightTotal)
   let cumulative = 0
   for (const rarity of RARITY_ORDER) {
-    cumulative += rates[rarity]
+    cumulative += gachaConfig.rarityWeights[rarity]
     if (roll < cumulative) {
       return rarity
     }
   }
-  return 'N'
+  return RARITY_ORDER[RARITY_ORDER.length - 1]!
 }
 
 export function pickCharacterOfRarity(
@@ -78,13 +84,6 @@ export function compareRarity(a: CharacterRarity, b: CharacterRarity): number {
   return RARITY_ORDER.indexOf(a) - RARITY_ORDER.indexOf(b)
 }
 
-function peakOf(items: GachaPullItem[]): CharacterRarity {
-  return items.reduce<CharacterRarity>(
-    (peak, item) => (compareRarity(item.rarity, peak) > 0 ? item.rarity : peak),
-    'N',
-  )
-}
-
 function appendHistory(
   history: GachaHistoryEntry[],
   entries: GachaHistoryEntry[],
@@ -92,18 +91,33 @@ function appendHistory(
   return [...entries, ...history].slice(0, gachaConfig.historyLimit)
 }
 
+function duplicateCoinsForPull(
+  rarity: CharacterRarity,
+  economy: StoredEconomy,
+): number {
+  const base = duplicateCoinFor(rarity)
+  const selected = resolveCharacter(economy.selectedCharacterId)
+  const { gachaDuplicateCoinMultiplier } = resolvePlayAbilityModifiers(
+    selected.ability,
+  )
+  return applyGachaDuplicateCoinModifier(base, gachaDuplicateCoinMultiplier)
+}
+
 function rollOne(
   ownedSet: Set<string>,
   rng: GachaRng,
   pool: readonly CharacterDefinition[],
+  economy: StoredEconomy,
 ): GachaPullItem | null {
-  const rarity = rollRarity(gachaConfig.rarityRates, rng)
+  const rarity = rollRarity(rng)
   const character = pickCharacterOfRarity(rarity, pool, rng)
   if (!character) {
     return null
   }
   const wasDuplicate = ownedSet.has(character.id)
-  const duplicateCoins = wasDuplicate ? duplicateCoinFor(character.rarity) : 0
+  const duplicateCoins = wasDuplicate
+    ? duplicateCoinsForPull(character.rarity, economy)
+    : 0
   if (!wasDuplicate) {
     ownedSet.add(character.id)
   }
@@ -140,7 +154,7 @@ export function pullGacha(
   const items: GachaPullItem[] = []
 
   for (let i = 0; i < count; i += 1) {
-    const item = rollOne(ownedSet, rng, pool)
+    const item = rollOne(ownedSet, rng, pool, economy)
     if (!item) {
       return { ok: false, economy, error: 'empty_pool' }
     }
@@ -173,6 +187,6 @@ export function pullGacha(
     cost,
     items,
     totalDuplicateCoins,
-    peakRarity: peakOf(items),
+    peakRarity: pickPeakRarity(items.map((item) => item.rarity)),
   }
 }

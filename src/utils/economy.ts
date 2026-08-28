@@ -18,7 +18,7 @@ export interface EconomyMutationResult {
   error?: EconomyErrorCode
 }
 
-const RARITIES: CharacterRarity[] = ['N', 'R', 'SR', 'SSR', 'UR']
+const RARITIES: CharacterRarity[] = ['N', 'R', 'SR', 'SSR', 'UR', 'SHINNIN']
 
 export function createDefaultEconomy(): StoredEconomy {
   return {

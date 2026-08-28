@@ -205,11 +205,13 @@ async function runChecks() {
     } else {
       fail('gacha: scroll shrine visible', 'missing')
     }
-    for (const rate of ['55', '25', '12', '6', '2']) {
+    for (const rate of ['54.9', '25', '12', '6', '2', '0.1']) {
       if (!body.includes(rate)) {
         fail(`gacha: missing rate percent ${rate}%`, body.slice(0, 300))
       }
     }
+    if (body.includes('神忍')) pass('gacha: shinnin label in rates')
+    else fail('gacha: shinnin label in rates', body.slice(0, 300))
     if (results.failed.every((f) => !f.name.startsWith('gacha: missing rate'))) {
       pass('gacha: all rarity rates rendered')
     }
@@ -389,7 +391,7 @@ async function runChecks() {
     await page.waitForSelector('[data-testid="gacha-result-modal"]', { state: 'detached' })
 
     // UR reveal — wait for crest / gold scroll / rainbow
-    await setGachaRng(page, [0.99, 0])
+    await setGachaRng(page, [0.979, 0])
     await page.getByTestId('gacha-single').click()
     await page.waitForSelector('[data-testid="gacha-reveal"][data-peak-rarity="UR"]', {
       timeout: 5000,
@@ -409,6 +411,22 @@ async function runChecks() {
     if (urClass?.includes('gacha-reveal--ur')) pass('gacha: UR reveal styling')
     else fail('gacha: UR reveal styling', urClass ?? 'none')
     await page.screenshot({ path: join(SHOT_DIR, 'single-ur.png'), fullPage: false })
+    await page.getByTestId('gacha-reveal-skip').click()
+    await waitResultModal(page)
+    await page.getByTestId('gacha-reveal-close').click()
+    await page.waitForSelector('[data-testid="gacha-result-modal"]', { state: 'detached' })
+
+    // SHINNIN reveal
+    await setGachaRng(page, [0.999, 0])
+    await page.getByTestId('gacha-single').click()
+    await page.waitForSelector('[data-testid="gacha-reveal"][data-peak-rarity="SHINNIN"]', {
+      timeout: 6000,
+    })
+    await page.waitForSelector('[data-testid="gacha-shinnin-banner"]', { timeout: 6000 })
+    const shinninClass = await page.getByTestId('gacha-reveal').getAttribute('class')
+    if (shinninClass?.includes('gacha-reveal--shinnin')) pass('gacha: SHINNIN reveal styling')
+    else fail('gacha: SHINNIN reveal styling', shinninClass ?? 'none')
+    await page.screenshot({ path: join(SHOT_DIR, 'single-shinnin.png'), fullPage: false })
     await page.getByTestId('gacha-reveal-skip').click()
     await waitResultModal(page)
     await page.getByTestId('gacha-reveal-close').click()

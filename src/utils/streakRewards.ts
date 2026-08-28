@@ -4,6 +4,13 @@ import {
 } from '../config/streakRewardConfig'
 import type { StreakProgress, StreakRewardResult } from '../types/streakRewards'
 
+export interface StreakAbilityOptions {
+  milestoneReduction?: number
+  coinMultiplier?: number
+  timeDoubleChance?: number
+  rng?: () => number
+}
+
 function sanitizeCount(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return 0
@@ -37,19 +44,45 @@ export function resetStreakProgress(progress: StreakProgress): StreakProgress {
   }
 }
 
-export function getStreakReward(count: number): {
+function effectiveMilestoneCounts(reduction: number): StreakMilestoneCount[] {
+  const safeReduction = Math.max(0, Math.min(1, Math.floor(reduction)))
+  return STREAK_REWARD_CONFIG.milestones.map((milestone) =>
+    Math.max(1, milestone.count - safeReduction),
+  ) as StreakMilestoneCount[]
+}
+
+export function getStreakReward(
+  count: number,
+  options: StreakAbilityOptions = {},
+): {
   timeBonusSeconds: number
   coinBonus: number
   milestone: StreakMilestoneCount | null
 } {
   const safe = sanitizeCount(count)
-  const hit = STREAK_REWARD_CONFIG.milestones.find((m) => m.count === safe)
-  if (!hit) {
+  const reduction = options.milestoneReduction ?? 0
+  const effectiveCounts = effectiveMilestoneCounts(reduction)
+  const hitIndex = effectiveCounts.indexOf(safe as StreakMilestoneCount)
+  if (hitIndex < 0) {
     return { timeBonusSeconds: 0, coinBonus: 0, milestone: null }
   }
+  const hit = STREAK_REWARD_CONFIG.milestones[hitIndex]!
+  const coinMultiplier =
+    Number.isFinite(options.coinMultiplier) && options.coinMultiplier! > 0
+      ? options.coinMultiplier!
+      : 1
+  let timeBonusSeconds = hit.timeBonusSeconds
+  const chance = options.timeDoubleChance ?? 0
+  if (
+    timeBonusSeconds > 0 &&
+    chance > 0 &&
+    (options.rng?.() ?? Math.random()) < chance
+  ) {
+    timeBonusSeconds *= 2
+  }
   return {
-    timeBonusSeconds: hit.timeBonusSeconds,
-    coinBonus: hit.coinBonus,
+    timeBonusSeconds,
+    coinBonus: Math.floor(hit.coinBonus * coinMultiplier),
     milestone: hit.count,
   }
 }
@@ -58,11 +91,14 @@ export function getStreakReward(count: number): {
  * ノーミスで1問クリアしたときの次状態。
  * 引数の progress は書き換えない。
  */
-export function applyPerfectClear(progress: StreakProgress): StreakRewardResult {
+export function applyPerfectClear(
+  progress: StreakProgress,
+  options: StreakAbilityOptions = {},
+): StreakRewardResult {
   const previousCount = sanitizeCount(progress.currentCount)
   const cycle = STREAK_REWARD_CONFIG.cycleLength
   let nextCount = previousCount + 1
-  const reward = getStreakReward(nextCount)
+  const reward = getStreakReward(nextCount, options)
   let completedCycle = false
 
   if (nextCount >= cycle) {

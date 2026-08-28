@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CharacterRarity } from '../../config/characters'
+import { formatRarityLabel } from '../../config/rarityLabels'
 import { getSoundManager, type SfxId } from '../../audio/SoundManager'
 import type { GachaPullItem } from '../../utils/gacha'
 import { CharacterPreview } from '../common/CharacterPreview'
@@ -21,10 +22,16 @@ type RevealPhase =
   | 'silhouette'
   | 'crest'
   | 'rainbow-flash'
+  | 'silence'
+  | 'seal'
+  | 'scroll-transform'
+  | 'divine-lightning'
+  | 'divine-light'
+  | 'shinnin-text'
   | 'rarity-text'
   | 'done'
 
-type RevealTier = 'n' | 'r' | 'sr' | 'ssr' | 'ur'
+type RevealTier = 'n' | 'r' | 'sr' | 'ssr' | 'ur' | 'shinnin'
 
 interface GachaRevealFxProps {
   items: GachaPullItem[]
@@ -35,6 +42,9 @@ interface GachaRevealFxProps {
 }
 
 function tierFromRarity(rarity: CharacterRarity): RevealTier {
+  if (rarity === 'SHINNIN') {
+    return 'shinnin'
+  }
   return rarity.toLowerCase() as RevealTier
 }
 
@@ -43,6 +53,9 @@ function buildPhases(
   reducedMotion: boolean,
 ): RevealPhase[] {
   if (reducedMotion) {
+    if (peakRarity === 'SHINNIN') {
+      return ['blackout', 'silence', 'seal', 'shinnin-text', 'rarity-text', 'done']
+    }
     if (peakRarity === 'UR') {
       return ['blackout', 'crest', 'rarity-text', 'done']
     }
@@ -53,6 +66,23 @@ function buildPhases(
       return ['dark', 'electric', 'rarity-text', 'done']
     }
     return ['dark', 'smoke', 'rarity-text', 'done']
+  }
+
+  if (peakRarity === 'SHINNIN') {
+    return [
+      'blackout',
+      'silence',
+      'seal',
+      'scroll-transform',
+      'divine-lightning',
+      'big-smoke',
+      'divine-light',
+      'crest',
+      'shinnin-text',
+      'silhouette',
+      'rarity-text',
+      'done',
+    ]
   }
 
   if (peakRarity === 'UR') {
@@ -144,20 +174,32 @@ function phaseDurationMs(phase: RevealPhase, reducedMotion: boolean): number {
       return 360
     case 'rainbow-flash':
       return 340
+    case 'silence':
+      return reducedMotion ? 140 : 400
+    case 'seal':
+      return reducedMotion ? 160 : 480
+    case 'scroll-transform':
+      return 420
+    case 'divine-lightning':
+      return 620
+    case 'divine-light':
+      return 380
+    case 'shinnin-text':
+      return 420
     case 'rarity-text':
       return 300
   }
 }
 
 function sfxForRarity(rarity: CharacterRarity): SfxId | null {
-  if (rarity === 'UR') return 'gachaUr'
+  if (rarity === 'SHINNIN' || rarity === 'UR') return 'gachaUr'
   if (rarity === 'SSR') return 'gachaSsr'
   if (rarity === 'SR') return 'gachaSr'
   return null
 }
 
 /** Static SVG bolts — positions/delays via CSS only (no React coordinate state). */
-function LightningLayer({ tier }: { tier: 'sr' | 'ssr' | 'ur' }) {
+function LightningLayer({ tier }: { tier: 'sr' | 'ssr' | 'ur' | 'shinnin' }) {
   const boltPath =
     'M52 4 L28 48 L44 48 L22 96 L68 40 L48 40 L72 4 Z'
   return (
@@ -177,7 +219,7 @@ function LightningLayer({ tier }: { tier: 'sr' | 'ssr' | 'ur' }) {
           <path d={boltPath} />
         </svg>
       ))}
-      {(tier === 'ssr' || tier === 'ur') &&
+      {(tier === 'ssr' || tier === 'ur' || tier === 'shinnin') &&
         [1, 2, 3].map((n) => (
           <svg
             key={`gold-${n}`}
@@ -193,7 +235,7 @@ function LightningLayer({ tier }: { tier: 'sr' | 'ssr' | 'ur' }) {
   )
 }
 
-function ElectricAura({ tier }: { tier: 'sr' | 'ssr' | 'ur' }) {
+function ElectricAura({ tier }: { tier: 'sr' | 'ssr' | 'ur' | 'shinnin' }) {
   return (
     <div
       className={`gacha-electric gacha-electric--${tier}`}
@@ -221,7 +263,10 @@ export function GachaRevealFx({
   const sfxPlayedRef = useRef(false)
   const phase = phases[Math.min(index, phases.length - 1)] ?? 'done'
   const tier = tierFromRarity(peakRarity)
-  const rareTier = tier === 'sr' || tier === 'ssr' || tier === 'ur' ? tier : null
+  const rareTier =
+    tier === 'sr' || tier === 'ssr' || tier === 'ur' || tier === 'shinnin'
+      ? tier
+      : null
 
   useBodyScrollLock(true)
 
@@ -255,6 +300,7 @@ export function GachaRevealFx({
     const shouldPlay =
       phase === 'electric' ||
       phase === 'gold-lightning' ||
+      phase === 'divine-lightning' ||
       (reducedMotion && rareTier !== null && phase === 'crest')
     if (!shouldPlay) {
       return
@@ -282,16 +328,19 @@ export function GachaRevealFx({
     phase === 'silhouette' ||
     phase === 'rarity-text' ||
     (reducedMotion &&
-      (phase === 'smoke' || phase === 'electric' || phase === 'crest'))
-  const showSmoke = phase === 'smoke' || phase === 'big-smoke'
+      (phase === 'smoke' || phase === 'electric' || phase === 'crest' || phase === 'seal'))
+  const showSmoke =
+    phase === 'smoke' || phase === 'big-smoke' || phase === 'divine-lightning'
   const showScroll =
     phase === 'scroll' ||
     phase === 'scroll-open' ||
     phase === 'scroll-gold' ||
+    phase === 'scroll-transform' ||
     (rareTier === 'sr' && phase === 'electric')
   const showLightning =
     phase === 'electric' ||
     phase === 'gold-lightning' ||
+    phase === 'divine-lightning' ||
     phase === 'gold-flash' ||
     phase === 'silhouette' ||
     (reducedMotion && rareTier !== null && phase === 'crest')
@@ -299,11 +348,14 @@ export function GachaRevealFx({
     rareTier !== null &&
     (phase === 'electric' ||
       phase === 'gold-lightning' ||
+      phase === 'divine-lightning' ||
       phase === 'silhouette' ||
       phase === 'rarity-text' ||
+      phase === 'shinnin-text' ||
       phase === 'gold-flash' ||
       phase === 'shockwave' ||
       phase === 'rainbow-flash' ||
+      phase === 'divine-light' ||
       (reducedMotion && phase === 'crest'))
 
   if (typeof document === 'undefined' || phase === 'done') {
@@ -334,6 +386,7 @@ export function GachaRevealFx({
               'gacha-reveal__scroll',
               phase === 'scroll-open' ? 'gacha-reveal__scroll--open' : '',
               phase === 'scroll-gold' ? 'gacha-reveal__scroll--gold' : '',
+              phase === 'scroll-transform' ? 'gacha-reveal__scroll--transform' : '',
               rareTier === 'sr' && (phase === 'scroll' || phase === 'electric')
                 ? 'gacha-reveal__scroll--sr-glow'
                 : '',
@@ -346,7 +399,7 @@ export function GachaRevealFx({
           <div
             className={[
               'gacha-reveal__smoke',
-              phase === 'big-smoke' || tier === 'ssr' || tier === 'ur'
+              phase === 'big-smoke' || tier === 'ssr' || tier === 'ur' || tier === 'shinnin'
                 ? 'gacha-reveal__smoke--big'
                 : '',
               reducedMotion ? 'gacha-reveal__smoke--static' : '',
@@ -360,6 +413,22 @@ export function GachaRevealFx({
           <div className="gacha-reveal__charge-zone">
             <ElectricAura tier={rareTier} />
           </div>
+        )}
+        {phase === 'silence' && (
+          <div className="gacha-reveal__silence" data-testid="gacha-silence" aria-hidden="true" />
+        )}
+        {phase === 'seal' && (
+          <div className="gacha-reveal__seal" data-testid="gacha-seal" aria-hidden="true">
+            <span className="gacha-reveal__seal-mark">印</span>
+          </div>
+        )}
+        {phase === 'divine-light' && (
+          <div className="gacha-reveal__divine-light" data-testid="gacha-divine-light" />
+        )}
+        {phase === 'shinnin-text' && (
+          <p className="gacha-reveal__shinnin-banner" data-testid="gacha-shinnin-banner">
+            神忍
+          </p>
         )}
         {phase === 'gold-flash' && (
           <div className="gacha-reveal__gold-flash" data-testid="gacha-gold-flash" />
@@ -401,7 +470,7 @@ export function GachaRevealFx({
             ].join(' ')}
             data-testid="gacha-rarity-banner"
           >
-            {peakRarity}
+            {formatRarityLabel(peakRarity)}
           </p>
         )}
         {reducedMotion && rareTier === 'ssr' && phase === 'electric' && (

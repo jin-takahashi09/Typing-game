@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { CharacterAbility } from '../config/characters'
+import type { CharacterAbility } from '../config/characterTypes'
 import {
   applyComboMultiplierBonus,
   applyDamageAbility,
+  applyPerfectScoreBonus,
   applyScoreAbility,
   applyStageCoinAbility,
   getTimeBonusSeconds,
 } from './characterAbilities'
+import { resolvePlayAbilityModifiers } from './playAbilityModifiers'
 
 const none: CharacterAbility = {
   type: 'none',
@@ -123,5 +125,25 @@ describe('characterAbilities — safety', () => {
     expect(applyScoreAbility(-5, crimson).finalScore).toBe(0)
     expect(applyDamageAbility(Number.NaN, azure).finalDamage).toBe(0)
     expect(applyStageCoinAbility(-3, gold).finalCoins).toBe(0)
+  })
+})
+
+describe('characterAbilities — extended types', () => {
+  it('resolves new ability modifiers without double stacking', () => {
+    const perfect: CharacterAbility = {
+      type: 'perfectScoreBonus',
+      name: '完璧',
+      description: '+20',
+      value: 20,
+    }
+    expect(applyPerfectScoreBonus(50, perfect).finalScore).toBe(70)
+    const shield: CharacterAbility = {
+      type: 'streakShield',
+      name: '盾',
+      description: '1回',
+      value: 1,
+    }
+    expect(resolvePlayAbilityModifiers(shield).streakShieldCharges).toBe(1)
+    expect(resolvePlayAbilityModifiers(none).streakShieldCharges).toBe(0)
   })
 })

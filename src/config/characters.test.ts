@@ -5,15 +5,22 @@ import {
   resolveCharacter,
   toActivePlayCharacter,
 } from './characters'
-import { gachaConfig } from './gachaConfig'
+import { gachaConfig, RARITY_WEIGHT_TOTAL } from './gachaConfig'
 
 describe('characters visuals and abilities', () => {
-  it('provides at least 15 characters with rarities and distinct skins', () => {
-    expect(characters.length).toBeGreaterThanOrEqual(15)
+  it('provides 121 characters with rarities and distinct skins', () => {
+    expect(characters.length).toBe(121)
     const skins = new Set(characters.map((c) => c.skinClass))
     expect(skins.size).toBe(characters.length)
     for (const character of characters) {
-      expect(['N', 'R', 'SR', 'SSR', 'UR']).toContain(character.rarity)
+      expect([
+        'N',
+        'R',
+        'SR',
+        'SSR',
+        'UR',
+        'SHINNIN',
+      ]).toContain(character.rarity)
       expect(character.ability.name.length).toBeGreaterThan(0)
       expect(character.visual.accessories.length).toBeGreaterThan(0)
     }
@@ -75,7 +82,8 @@ describe('characters visuals and abilities', () => {
     })
   })
 
-  it('keeps gacha rate table totaling 100%', () => {
+  it('keeps gacha weight table totaling 100%', () => {
+    expect(RARITY_WEIGHT_TOTAL).toBe(1000)
     const total = Object.values(gachaConfig.rarityRates).reduce((a, b) => a + b, 0)
     expect(total).toBeCloseTo(1, 5)
     expect(gachaConfig.singleCost).toBe(100)

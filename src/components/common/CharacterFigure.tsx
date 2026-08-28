@@ -1,10 +1,15 @@
+import { useMemo } from 'react'
 import type {
   CharacterAccessory,
   CharacterIdleEffect,
   CharacterPose,
   CharacterRarity,
   CharacterVisualConfig,
-} from '../../config/characters'
+} from '../../config/characterTypes'
+import {
+  buildGeneratedSkinSvg,
+  isGeneratedSkinClass,
+} from '../../utils/characterSkinGenerator'
 
 interface CharacterFigureProps {
   skinClass: string
@@ -93,6 +98,18 @@ export function CharacterFigure({
   const variantClass =
     variant === 'gacha-result' ? 'character-figure--gacha-result' : ''
 
+  const generatedStyle = useMemo(() => {
+    if (!isGeneratedSkinClass(skinClass)) {
+      return undefined
+    }
+    return {
+      backgroundImage: `url("${buildGeneratedSkinSvg(visual.skinSeed ?? 0, rarity)}")`,
+      backgroundSize: 'contain',
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center bottom',
+    } as const
+  }, [skinClass, visual.skinSeed, rarity])
+
   return (
     <div
       className={[
@@ -106,7 +123,10 @@ export function CharacterFigure({
         .join(' ')}
       aria-hidden="true"
     >
-      <div className={['ninja-sprite character-body h-full w-full', skinClass].join(' ')} />
+      <div
+        className={['ninja-sprite character-body h-full w-full', skinClass].join(' ')}
+        style={generatedStyle}
+      />
       {visual.accessories.map((accessory) => (
         <div
           key={accessory}

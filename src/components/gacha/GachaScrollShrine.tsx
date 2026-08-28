@@ -11,7 +11,9 @@ interface GachaScrollShrineProps {
 }
 
 function peakTierClass(rarity: CharacterRarity): string {
-  if (rarity === 'UR' || rarity === 'SSR') return 'scroll-shrine--peak-high'
+  if (rarity === 'SHINNIN' || rarity === 'UR' || rarity === 'SSR') {
+    return 'scroll-shrine--peak-high'
+  }
   if (rarity === 'SR') return 'scroll-shrine--peak-sr'
   return 'scroll-shrine--peak-normal'
 }

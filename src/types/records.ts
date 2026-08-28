@@ -1,6 +1,6 @@
 import type { DifficultyId, MotionPreference } from './app'
 import { gameConfig } from '../config/gameConfig'
-import { DEFAULT_CHARACTER_ID } from '../config/characters'
+import { DEFAULT_CHARACTER_ID, type CharacterRarity } from '../config/characters'
 
 export const STORAGE_SCHEMA_VERSION = gameConfig.storageVersion
 
@@ -71,10 +71,23 @@ export interface PlayComparison {
   isNewBestAccuracy: boolean
 }
 
+export type GachaPullType = 'single' | 'multi'
+
+export interface GachaHistoryEntry {
+  id: string
+  pulledAt: string
+  characterId: string
+  rarity: CharacterRarity
+  wasDuplicate: boolean
+  duplicateCoins: number
+  pullType: GachaPullType
+}
+
 export interface StoredEconomy {
   coins: number
   ownedCharacterIds: string[]
   selectedCharacterId: string
+  gachaHistory: GachaHistoryEntry[]
 }
 
 export interface StoredAppData {
@@ -119,6 +132,7 @@ export function createDefaultStoredData(): StoredAppData {
       coins: 0,
       ownedCharacterIds: [DEFAULT_CHARACTER_ID],
       selectedCharacterId: DEFAULT_CHARACTER_ID,
+      gachaHistory: [],
     },
   }
 }

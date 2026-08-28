@@ -227,6 +227,22 @@ const migrationSteps: Partial<Record<number, MigrationStep>> = {
       economy: createDefaultEconomy(),
     }
   },
+  2: (raw) => {
+    if (!isObject(raw)) {
+      return createDefaultStoredData()
+    }
+    const economyRaw = isObject(raw.economy) ? raw.economy : {}
+    return {
+      ...raw,
+      version: 3,
+      economy: {
+        ...economyRaw,
+        gachaHistory: Array.isArray(economyRaw.gachaHistory)
+          ? economyRaw.gachaHistory
+          : [],
+      },
+    }
+  },
 }
 
 export function migrateStoredData(raw: unknown): unknown {

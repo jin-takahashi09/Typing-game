@@ -29,7 +29,7 @@ function sanitizeNonNegativeInt(value: number): number {
   return Math.floor(value)
 }
 
-/** 紅蓮：獲得スコアに倍率を適用（二重適用しない前提で1回だけ） */
+/** 紅蓮など：獲得スコアに倍率を適用（二重適用しない前提で1回だけ） */
 export function applyScoreAbility(
   baseScore: number,
   ability: CharacterAbility,
@@ -48,51 +48,33 @@ export function applyScoreAbility(
       }
     }
     case 'none':
-    case 'damageReduction':
     case 'stageCoinMultiplier':
+    case 'timeBonusSeconds':
+    case 'comboMultiplierBonus':
       return { baseScore: safeBase, finalScore: safeBase, bonusScore: 0 }
     default:
       return assertNever(ability)
   }
 }
 
-/** 蒼影：防衛壁ダメージを軽減（最低1） */
+/**
+ * 被弾ダメージ（HP UI 廃止後も内部ヒット処理用）。
+ * 能力による軽減は行わない。
+ */
 export function applyDamageAbility(
   baseDamage: number,
   ability: CharacterAbility,
 ): DamageAbilityResult {
+  void ability
   const safeBase = sanitizeNonNegativeInt(baseDamage)
-
-  switch (ability.type) {
-    case 'damageReduction': {
-      if (safeBase <= 0) {
-        return { baseDamage: 0, finalDamage: 0, reducedBy: 0 }
-      }
-      const reduction =
-        Number.isFinite(ability.value) && ability.value > 0
-          ? Math.min(0.95, ability.value)
-          : 0
-      const finalDamage = Math.max(1, Math.ceil(safeBase * (1 - reduction)))
-      return {
-        baseDamage: safeBase,
-        finalDamage,
-        reducedBy: Math.max(0, safeBase - finalDamage),
-      }
-    }
-    case 'none':
-    case 'scoreMultiplier':
-    case 'stageCoinMultiplier':
-      return {
-        baseDamage: safeBase,
-        finalDamage: safeBase,
-        reducedBy: 0,
-      }
-    default:
-      return assertNever(ability)
+  return {
+    baseDamage: safeBase,
+    finalDamage: safeBase,
+    reducedBy: 0,
   }
 }
 
-/** 黄金：撃破マイルストーンコインのみ倍率（成績ボーナスには使わない） */
+/** 黄金など：撃破マイルストーンコインのみ倍率 */
 export function applyStageCoinAbility(
   baseCoins: number,
   ability: CharacterAbility,
@@ -112,9 +94,38 @@ export function applyStageCoinAbility(
     }
     case 'none':
     case 'scoreMultiplier':
-    case 'damageReduction':
+    case 'timeBonusSeconds':
+    case 'comboMultiplierBonus':
       return { baseCoins: safeBase, finalCoins: safeBase, bonusCoins: 0 }
     default:
       return assertNever(ability)
   }
+}
+
+/** 月光・風神：制限時間への加算秒数 */
+export function getTimeBonusSeconds(ability: CharacterAbility): number {
+  if (ability.type !== 'timeBonusSeconds') {
+    return 0
+  }
+  if (!Number.isFinite(ability.value) || ability.value <= 0) {
+    return 0
+  }
+  return Math.floor(ability.value)
+}
+
+/** 暁影・鬼面：コンボ倍率への加算 */
+export function applyComboMultiplierBonus(
+  baseComboMultiplier: number,
+  ability: CharacterAbility,
+): number {
+  const safeBase =
+    Number.isFinite(baseComboMultiplier) && baseComboMultiplier > 0
+      ? baseComboMultiplier
+      : 0
+  if (ability.type !== 'comboMultiplierBonus') {
+    return safeBase
+  }
+  const bonus =
+    Number.isFinite(ability.value) && ability.value > 0 ? ability.value : 0
+  return safeBase + bonus
 }

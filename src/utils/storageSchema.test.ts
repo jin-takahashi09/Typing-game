@@ -52,7 +52,7 @@ describe('storageSchema', () => {
     expect(migrated.economy.ownedCharacterIds).toContain('shinobi-default')
   })
 
-  it('migrates version 1 data to version 2 with default economy', () => {
+  it('migrates version 1 data through to current schema with default economy', () => {
     const migrated = parseStoredData({
       version: 1,
       settings: { volume: 0.4, muted: true, lastDifficulty: 'ninja', motionPreference: 'reduced' },
@@ -60,10 +60,29 @@ describe('storageSchema', () => {
       bestByDifficulty: { trainee: null, ninja: null, master: null },
       recentPlays: [],
     })
-    expect(migrated.version).toBe(2)
+    expect(migrated.version).toBe(STORAGE_SCHEMA_VERSION)
     expect(migrated.economy.coins).toBe(0)
+    expect(migrated.economy.gachaHistory).toEqual([])
     expect(migrated.settings.volume).toBe(0.4)
     expect(migrated.aggregates.totalPlays).toBe(1)
+  })
+
+  it('migrates version 2 economy by adding gachaHistory', () => {
+    const migrated = parseStoredData({
+      version: 2,
+      settings: { volume: 0.4, muted: true, lastDifficulty: null, motionPreference: 'system' },
+      aggregates: { totalPlays: 0, totalTypedChars: 0, bestComboAll: 0 },
+      bestByDifficulty: { trainee: null, ninja: null, master: null },
+      recentPlays: [],
+      economy: {
+        coins: 12,
+        ownedCharacterIds: ['shinobi-default'],
+        selectedCharacterId: 'shinobi-default',
+      },
+    })
+    expect(migrated.version).toBe(3)
+    expect(migrated.economy.coins).toBe(12)
+    expect(migrated.economy.gachaHistory).toEqual([])
   })
 
   it('falls back to defaults for unknown future versions', () => {

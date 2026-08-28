@@ -6,9 +6,9 @@ import {
   awardCoins,
   createDefaultEconomy,
   normalizeEconomy,
-  purchaseCharacter,
   selectCharacter,
 } from './economy'
+import { pullGacha } from './gacha'
 import { parseStoredData } from './storageSchema'
 import { clearPlayRecords } from './clearPlayRecords'
 
@@ -18,6 +18,7 @@ describe('economy', () => {
     expect(economy.coins).toBe(0)
     expect(economy.ownedCharacterIds).toContain(DEFAULT_CHARACTER_ID)
     expect(economy.selectedCharacterId).toBe(DEFAULT_CHARACTER_ID)
+    expect(economy.gachaHistory).toEqual([])
   })
 
   it('awards coins and never goes negative via normalize', () => {
@@ -25,33 +26,15 @@ describe('economy', () => {
     expect(awarded.ok).toBe(true)
     expect(awarded.economy.coins).toBe(50)
 
-    const normalized = normalizeEconomy({ coins: -10, ownedCharacterIds: [], selectedCharacterId: 'nope' })
+    const normalized = normalizeEconomy({
+      coins: -10,
+      ownedCharacterIds: [],
+      selectedCharacterId: 'nope',
+    })
     expect(normalized.coins).toBe(0)
     expect(normalized.selectedCharacterId).toBe(DEFAULT_CHARACTER_ID)
     expect(normalized.ownedCharacterIds).toContain(DEFAULT_CHARACTER_ID)
-  })
-
-  it('purchases when coins are enough and deducts price', () => {
-    const rich = awardCoins(createDefaultEconomy(), 100).economy
-    const bought = purchaseCharacter(rich, 'shinobi-red')
-    expect(bought.ok).toBe(true)
-    expect(bought.economy.coins).toBe(0)
-    expect(bought.economy.ownedCharacterIds).toContain('shinobi-red')
-  })
-
-  it('rejects purchase when coins are insufficient', () => {
-    const result = purchaseCharacter(createDefaultEconomy(), 'shinobi-red')
-    expect(result.ok).toBe(false)
-    expect(result.error).toBe('insufficient_coins')
-    expect(result.economy.coins).toBe(0)
-  })
-
-  it('rejects duplicate purchase', () => {
-    const rich = awardCoins(createDefaultEconomy(), 200).economy
-    const once = purchaseCharacter(rich, 'shinobi-red')
-    const twice = purchaseCharacter(once.economy, 'shinobi-red')
-    expect(twice.ok).toBe(false)
-    expect(twice.error).toBe('already_owned')
+    expect(normalized.gachaHistory).toEqual([])
   })
 
   it('selects only owned characters', () => {
@@ -59,43 +42,82 @@ describe('economy', () => {
     expect(deny.ok).toBe(false)
     expect(deny.error).toBe('not_owned')
 
-    const rich = awardCoins(createDefaultEconomy(), 200).economy
-    const owned = purchaseCharacter(rich, 'shinobi-blue').economy
-    const selected = selectCharacter(owned, 'shinobi-blue')
+    let economy = awardCoins(createDefaultEconomy(), 1000).economy
+    economy = {
+      ...economy,
+      ownedCharacterIds: [...economy.ownedCharacterIds, 'shinobi-blue'],
+    }
+    const selected = selectCharacter(economy, 'shinobi-blue')
     expect(selected.ok).toBe(true)
     expect(selected.economy.selectedCharacterId).toBe('shinobi-blue')
   })
 
   it('rejects unknown character ids', () => {
-    expect(purchaseCharacter(createDefaultEconomy(), 'ghost').error).toBe('unknown_character')
-    expect(selectCharacter(createDefaultEconomy(), 'ghost').error).toBe('unknown_character')
+    expect(selectCharacter(createDefaultEconomy(), 'ghost').error).toBe(
+      'unknown_character',
+    )
   })
 
-  it('persists economy across reload', () => {
+  it('persists economy and gacha history across reload', () => {
     const adapter = createMemoryStorageAdapter()
     const data = createDefaultStoredData()
-    data.economy = awardCoins(data.economy, 120).economy
-    data.economy = purchaseCharacter(data.economy, 'shinobi-red').economy
-    data.economy = selectCharacter(data.economy, 'shinobi-red').economy
+    let economy = awardCoins(data.economy, 1000).economy
+    const pulled = pullGacha(economy, 'single', () => 0.01)
+    expect(pulled.ok).toBe(true)
+    economy = pulled.economy!
+    const newId = pulled.items!.find((item) => item.newlyOwned)?.characterId
+    if (newId) {
+      economy = selectCharacter(economy, newId).economy
+    }
+    data.economy = economy
     saveStoredData(data, adapter)
 
     const loaded = loadStoredData(adapter)
-    expect(loaded.data.economy.coins).toBe(20)
-    expect(loaded.data.economy.ownedCharacterIds).toContain('shinobi-red')
-    expect(loaded.data.economy.selectedCharacterId).toBe('shinobi-red')
+    expect(loaded.data.economy.coins).toBe(economy.coins)
+    expect(loaded.data.economy.gachaHistory.length).toBeGreaterThan(0)
+    expect(loaded.data.version).toBe(3)
   })
 
-  it('migrates schema v1 to v2 with default economy', () => {
+  it('migrates schema v1 to v3 with default economy', () => {
     const migrated = parseStoredData({
       version: 1,
-      settings: { volume: 0.5, muted: false, lastDifficulty: null, motionPreference: 'system' },
+      settings: {
+        volume: 0.5,
+        muted: false,
+        lastDifficulty: null,
+        motionPreference: 'system',
+      },
       aggregates: { totalPlays: 2, totalTypedChars: 10, bestComboAll: 1 },
       bestByDifficulty: { trainee: null, ninja: null, master: null },
       recentPlays: [],
     })
-    expect(migrated.version).toBe(2)
+    expect(migrated.version).toBe(3)
     expect(migrated.economy).toEqual(createDefaultEconomy())
     expect(migrated.aggregates.totalPlays).toBe(2)
+  })
+
+  it('migrates schema v2 economy to include gachaHistory', () => {
+    const migrated = parseStoredData({
+      version: 2,
+      settings: {
+        volume: 0.5,
+        muted: false,
+        lastDifficulty: null,
+        motionPreference: 'system',
+      },
+      aggregates: { totalPlays: 0, totalTypedChars: 0, bestComboAll: 0 },
+      bestByDifficulty: { trainee: null, ninja: null, master: null },
+      recentPlays: [],
+      economy: {
+        coins: 40,
+        ownedCharacterIds: [DEFAULT_CHARACTER_ID, 'shinobi-red'],
+        selectedCharacterId: 'shinobi-red',
+      },
+    })
+    expect(migrated.version).toBe(3)
+    expect(migrated.economy.coins).toBe(40)
+    expect(migrated.economy.ownedCharacterIds).toContain('shinobi-red')
+    expect(migrated.economy.gachaHistory).toEqual([])
   })
 
   it('keeps economy after clearing play records', () => {
@@ -104,6 +126,7 @@ describe('economy', () => {
       coins: 300,
       ownedCharacterIds: [DEFAULT_CHARACTER_ID, 'shinobi-gold'],
       selectedCharacterId: 'shinobi-gold',
+      gachaHistory: [],
     }
     data.aggregates.totalPlays = 3
     const cleared = clearPlayRecords(data)

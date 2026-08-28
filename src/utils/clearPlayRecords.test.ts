@@ -62,6 +62,7 @@ describe('clearPlayRecords', () => {
       coins: 250,
       ownedCharacterIds: ['shinobi-default', 'shinobi-red'],
       selectedCharacterId: 'shinobi-red',
+      gachaHistory: [],
     }
     const cleared = clearPlayRecords(data)
     expect(cleared.economy).toEqual(data.economy)

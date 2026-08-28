@@ -1418,12 +1418,6 @@ export function GameScreen({
           showEmergencyHint={showEmergencyHint}
         />
 
-        {config.showBeginnerGuide && state.destroyedTargets === 0 && (
-          <p className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[90%] -translate-x-1/2 text-center text-sm text-[var(--color-text-soft)] md:bottom-32">
-            表示された文字を入力して迎撃。成功または失敗のあと、次の敵が現れます
-          </p>
-        )}
-
         {state.status === 'paused' && (
           <PauseOverlay
             playCharacter={playCharacter}

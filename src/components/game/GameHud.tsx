@@ -45,7 +45,7 @@ export function GameHud({
             Score
           </span>
           <span
-            className="font-display text-sm text-[var(--color-accent-yellow)] sm:text-base"
+            className="font-game text-sm text-[var(--color-accent-yellow)] sm:text-base"
             data-testid="hud-score"
           >
             {score}
@@ -66,11 +66,11 @@ export function GameHud({
           ].join(' ')}
           aria-live="polite"
         >
-          <span className="font-display text-xs italic text-[var(--color-accent-red)] sm:text-sm">
+          <span className="font-game text-xs italic text-[var(--color-accent-red)] sm:text-sm">
             Combo x{combo}
           </span>
         </div>
-        <div className="rounded border border-[var(--color-border-blue)] bg-black/45 px-1.5 py-0.5 text-[0.55rem] text-[var(--color-text-soft)] sm:text-[0.65rem]">
+        <div className="rounded border border-[var(--color-border-blue)] bg-black/45 px-1.5 py-0.5 font-game text-[0.55rem] text-[var(--color-text-soft)] sm:text-[0.65rem]">
           WPM {wpm.toFixed(1)}
         </div>
         <div
@@ -153,7 +153,7 @@ export function GameHud({
           <span className="block text-[0.5rem] font-bold uppercase tracking-wider text-[var(--color-text-muted)] sm:text-[0.55rem]">
             所持コイン
           </span>
-          <span className="font-display text-xs text-[var(--color-accent-yellow)] sm:text-sm">
+          <span className="font-game text-xs text-[var(--color-accent-yellow)] sm:text-sm">
             {coins}
           </span>
           {coinGainFlash !== null && coinGainFlash > 0 && (

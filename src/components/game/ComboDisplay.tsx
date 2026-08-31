@@ -17,7 +17,7 @@ export function ComboDisplay({
 
   return (
     <div
-      className="combo-popup pointer-events-none absolute z-40 font-display text-2xl text-[var(--color-accent-yellow)]"
+      className="combo-popup pointer-events-none absolute z-40 font-game text-2xl text-[var(--color-accent-yellow)]"
       style={{
         left: `${xPercent}%`,
         top: `${Math.max(0, yPx - 40)}px`,

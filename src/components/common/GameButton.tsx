@@ -37,7 +37,7 @@ export function GameButton({
       type={type}
       disabled={disabled}
       className={[
-        'font-display rounded-[var(--radius-md)] border-b-4 transition-all',
+        'font-accent rounded-[var(--radius-md)] border-b-4 transition-all',
         'duration-[var(--duration-fast)] transform',
         'hover:scale-105 active:scale-95 active:border-b-0 active:translate-y-1',
         'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100',

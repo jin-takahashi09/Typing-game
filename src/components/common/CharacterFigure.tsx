@@ -103,12 +103,12 @@ export function CharacterFigure({
       return undefined
     }
     return {
-      backgroundImage: `url("${buildGeneratedSkinSvg(visual.skinSeed ?? 0, rarity)}")`,
+      backgroundImage: `url("${buildGeneratedSkinSvg(visual.skinSeed ?? 0, rarity, visual)}")`,
       backgroundSize: 'contain',
       backgroundRepeat: 'no-repeat',
       backgroundPosition: 'center bottom',
     } as const
-  }, [skinClass, visual.skinSeed, rarity])
+  }, [skinClass, visual, rarity])
 
   return (
     <div

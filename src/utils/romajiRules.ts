@@ -1,3 +1,5 @@
+import type { RomajiLetterCase } from '../types/app'
+
 /** 拗音（2文字かな） */
 const YOON_KANA = new Set([
   'きゃ', 'きゅ', 'きょ',
@@ -118,6 +120,63 @@ function getBaseOptions(kana: string): string[] {
     return uniqueOptions(BASIC_ROMAJI[kana])
   }
   return [kana.toLowerCase()]
+}
+
+/** 画面表示用ローマ字の優先表記（し→si, ち→ti など） */
+const DISPLAY_SEGMENT_RANK = [
+  'si', 'shi', 'ti', 'chi', 'tu', 'tsu', 'hu', 'fu', 'zi', 'ji',
+  'sya', 'sha', 'syu', 'shu', 'syo', 'sho',
+  'tya', 'cha', 'cya', 'tyu', 'chu', 'cyu', 'tyo', 'cho', 'cyo',
+  'zya', 'ja', 'jya', 'zyu', 'ju', 'jyu', 'zyo', 'jo', 'jyo',
+]
+
+function pickDisplaySegment(options: string[]): string {
+  const normalized = uniqueOptions(options)
+  for (const preferred of DISPLAY_SEGMENT_RANK) {
+    if (normalized.includes(preferred)) {
+      return preferred
+    }
+  }
+  return normalized[0] ?? ''
+}
+
+function getDisplayMoraOptions(morae: string[], reading: string): string[] {
+  return morae.map((kana, index) => {
+    if (kana === 'っ') {
+      const nextOptions =
+        index + 1 < morae.length ? getBaseOptions(morae[index + 1]!) : []
+      const consonants = getSmallTsuOptions(nextOptions)
+      return consonants[0] ?? ''
+    }
+
+    if (kana === 'ー') {
+      return '-'
+    }
+
+    if (kana === 'ん') {
+      return 'n'
+    }
+
+    if (kana === 'は' && (reading === 'こんにちは' || reading === 'こんばんは')) {
+      return 'wa'
+    }
+
+    return pickDisplaySegment(getBaseOptions(kana))
+  })
+}
+
+/** 画面に表示する代表ローマ字（入力候補とは独立） */
+export function buildDisplayRomajiFromReading(reading: string): string {
+  const morae = parseReadingToMorae(reading)
+  return getDisplayMoraOptions(morae, reading).join('')
+}
+
+/** 表示用ローマ字の大文字 / 小文字。入力判定には使わない */
+export function formatRomajiForDisplay(
+  romaji: string,
+  letterCase: RomajiLetterCase = 'lower',
+): string {
+  return letterCase === 'upper' ? romaji.toUpperCase() : romaji.toLowerCase()
 }
 
 function getSmallTsuOptions(nextOptions: string[]): string[] {

@@ -2,6 +2,7 @@ import type { DifficultyId } from '../types/app'
 import type { TypingProblem } from '../types/typing'
 import { typingProblems } from '../data/typingProblems'
 import type { DifficultyConfig } from '../config/difficultyConfig'
+import { buildDisplayRomajiFromReading } from './romajiRules'
 
 export interface SelectProblemOptions {
   difficulty: DifficultyId
@@ -20,7 +21,7 @@ export function getProblemsForDifficulty(
 }
 
 export function getRepresentativeRomaji(problem: TypingProblem): string {
-  return problem.romajiPatterns[0]?.toLowerCase() ?? ''
+  return buildDisplayRomajiFromReading(problem.reading)
 }
 
 /**

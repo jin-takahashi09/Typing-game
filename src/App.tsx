@@ -385,6 +385,7 @@ export default function App() {
           volume={storedData.settings.volume}
           muted={storedData.settings.muted}
           reducedMotion={reducedMotion}
+          romajiLetterCase={storedData.settings.romajiLetterCase ?? 'lower'}
           browserBackRequest={browserBackRequest}
           coins={storedData.economy.coins}
           onVolumeChange={(volume) => updateSettings({ volume })}

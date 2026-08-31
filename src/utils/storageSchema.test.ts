@@ -23,6 +23,7 @@ describe('storageSchema', () => {
     expect(data.recentPlays).toHaveLength(1)
     expect(data.settings.motionPreference).toBe('system')
     expect(data.bestByDifficulty.trainee).toBeNull()
+    expect(data.settings.romajiLetterCase).toBe('lower')
   })
 
   it('drops invalid play records and clamps numeric values', () => {
@@ -39,6 +40,7 @@ describe('storageSchema', () => {
     expect(data.settings.volume).toBe(1)
     expect(data.settings.muted).toBe(false)
     expect(data.settings.lastDifficulty).toBeNull()
+    expect(data.settings.romajiLetterCase).toBe('lower')
     expect(data.aggregates.totalPlays).toBe(0)
     expect(data.recentPlays).toHaveLength(1)
   })
@@ -65,6 +67,7 @@ describe('storageSchema', () => {
     expect(migrated.economy.gachaHistory).toEqual([])
     expect(migrated.settings.volume).toBe(0.4)
     expect(migrated.aggregates.totalPlays).toBe(1)
+    expect(migrated.settings.romajiLetterCase).toBe('lower')
   })
 
   it('migrates version 2 economy by adding gachaHistory', () => {

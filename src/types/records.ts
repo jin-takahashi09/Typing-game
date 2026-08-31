@@ -1,4 +1,4 @@
-import type { DifficultyId, MotionPreference } from './app'
+import type { DifficultyId, MotionPreference, RomajiLetterCase } from './app'
 import { gameConfig } from '../config/gameConfig'
 import { DEFAULT_CHARACTER_ID, type CharacterRarity } from '../config/characters'
 
@@ -9,6 +9,7 @@ export interface StoredSettings {
   muted: boolean
   lastDifficulty: DifficultyId | null
   motionPreference: MotionPreference
+  romajiLetterCase: RomajiLetterCase
 }
 
 export interface StoredAggregates {
@@ -116,6 +117,7 @@ export function createDefaultStoredData(): StoredAppData {
       muted: false,
       lastDifficulty: null,
       motionPreference: 'system',
+      romajiLetterCase: 'lower',
     },
     aggregates: {
       totalPlays: 0,

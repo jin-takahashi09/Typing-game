@@ -1,4 +1,4 @@
-import type { DifficultyId, MotionPreference } from '../types/app'
+import type { DifficultyId, MotionPreference, RomajiLetterCase } from '../types/app'
 import type {
   BestRecord,
   PlayRecord,
@@ -16,6 +16,7 @@ import { normalizeEconomy, createDefaultEconomy } from './economy'
 
 const DIFFICULTY_IDS: DifficultyId[] = ['trainee', 'ninja', 'master']
 const MOTION_PREFERENCES: MotionPreference[] = ['system', 'reduced', 'full']
+const ROMAJI_LETTER_CASES: RomajiLetterCase[] = ['lower', 'upper']
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -47,6 +48,13 @@ function toMotionPreference(value: unknown): MotionPreference {
   return 'system'
 }
 
+function toRomajiLetterCase(value: unknown): RomajiLetterCase {
+  if (typeof value === 'string' && ROMAJI_LETTER_CASES.includes(value as RomajiLetterCase)) {
+    return value as RomajiLetterCase
+  }
+  return 'lower'
+}
+
 function normalizeSettings(raw: unknown, defaults: StoredSettings): StoredSettings {
   if (!isObject(raw)) {
     return defaults
@@ -58,6 +66,7 @@ function normalizeSettings(raw: unknown, defaults: StoredSettings): StoredSettin
     muted: typeof raw.muted === 'boolean' ? raw.muted : defaults.muted,
     lastDifficulty: toDifficultyId(raw.lastDifficulty) ?? defaults.lastDifficulty,
     motionPreference: toMotionPreference(raw.motionPreference),
+    romajiLetterCase: toRomajiLetterCase(raw.romajiLetterCase),
   }
 }
 

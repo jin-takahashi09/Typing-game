@@ -227,6 +227,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
               const view = getActiveRomajiView(
                 item.romajiPatterns,
                 item.matchState,
+                item.displayRomaji,
               )
               return {
                 ...item,

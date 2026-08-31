@@ -5,6 +5,7 @@ import {
   processRomajiInput,
   resolveActiveRomajiDisplay,
 } from './romajiMatcher'
+import { buildDisplayRomajiFromReading } from './romajiRules'
 import { typingProblems } from '../data/typingProblems'
 import type { TypingProblem } from '../types/typing'
 
@@ -51,6 +52,19 @@ describe('romajiMatcher', () => {
 
     expect(typeWord(problem, 'shinobi').ok).toBe(true)
     expect(typeWord(problem, 'sinobi').ok).toBe(true)
+  })
+
+  it('accepts tomodati display while accepting tomodachi input', () => {
+    const problem = makeProblem({
+      displayText: '友達',
+      reading: 'ともだち',
+      romajiPatterns: ['tomodachi', 'tomodati'],
+    })
+    expect(buildDisplayRomajiFromReading(problem.reading)).toBe('tomodati')
+    expect(typeWord(problem, 'tomodati').ok).toBe(true)
+    expect(typeWord(problem, 'tomodachi').ok).toBe(true)
+    expect(typeWord(problem, 'TOMODATI').ok).toBe(true)
+    expect(typeWord(problem, 'TOMODACHI').ok).toBe(true)
   })
 
   it('accepts shi and si while typing shinobi', () => {
@@ -248,12 +262,12 @@ describe('romajiMatcher', () => {
     expect(koohiiTyped.state.isComplete).toBe(true)
   })
 
-  it('completes every representative romaji pattern in the problem bank', () => {
+  it('completes every display romaji pattern in the problem bank', () => {
     const failures: string[] = []
     for (const problem of typingProblems) {
-      const representative = problem.romajiPatterns[0]?.toLowerCase()
+      const representative = buildDisplayRomajiFromReading(problem.reading)
       expect(representative).toBeTruthy()
-      const typed = typeWord(problem, representative!)
+      const typed = typeWord(problem, representative)
       if (!typed.ok || !typed.state.isComplete) {
         failures.push(
           `${problem.id}:${representative}${typed.ok ? '' : `@${typed.char}`}`,
@@ -272,29 +286,39 @@ describe('sushi-da romaji display switching', () => {
       expect(result.accepted).toBe(true)
       state = result.nextState
     }
-    return getActiveRomajiView(problem.romajiPatterns, state).displayRomaji
+    return getActiveRomajiView(
+      problem.romajiPatterns,
+      state,
+      buildDisplayRomajiFromReading(problem.reading),
+    ).displayRomaji
   }
 
-  it('keeps sushi until susi uniquely determines the candidate', () => {
+  it('keeps susi until susi uniquely determines the candidate', () => {
     const problem = makeProblem({
       displayText: 'すし',
       reading: 'すし',
       romajiPatterns: ['sushi', 'susi'],
     })
-    expect(resolveActiveRomajiDisplay(problem.romajiPatterns, '')).toBe('sushi')
-    expect(displayAfter(problem, 's')).toBe('sushi')
-    expect(displayAfter(problem, 'su')).toBe('sushi')
-    expect(displayAfter(problem, 'sus')).toBe('sushi')
+    const display = buildDisplayRomajiFromReading(problem.reading)
+    expect(display).toBe('susi')
+    expect(resolveActiveRomajiDisplay(problem.romajiPatterns, '', display)).toBe(
+      'susi',
+    )
+    expect(displayAfter(problem, 's')).toBe('susi')
+    expect(displayAfter(problem, 'su')).toBe('susi')
+    expect(displayAfter(problem, 'sus')).toBe('susi')
     expect(displayAfter(problem, 'susi')).toBe('susi')
   })
 
-  it('switches shinobi to sinobi once only sinobi remains', () => {
+  it('switches sinobi to shinobi once only shinobi remains', () => {
     const problem = makeProblem({
       displayText: 'しのび',
       reading: 'しのび',
       romajiPatterns: ['shinobi', 'sinobi'],
     })
-    expect(displayAfter(problem, 's')).toBe('shinobi')
+    expect(buildDisplayRomajiFromReading(problem.reading)).toBe('sinobi')
+    expect(displayAfter(problem, 's')).toBe('sinobi')
+    expect(displayAfter(problem, 'sh')).toBe('shinobi')
     expect(displayAfter(problem, 'si')).toBe('sinobi')
     expect(displayAfter(problem, 'sin')).toBe('sinobi')
   })
@@ -319,7 +343,11 @@ describe('sushi-da romaji display switching', () => {
     for (const char of 'susi') {
       state = processRomajiInput(state, problem, char).nextState
     }
-    const view = getActiveRomajiView(problem.romajiPatterns, state)
+    const view = getActiveRomajiView(
+      problem.romajiPatterns,
+      state,
+      buildDisplayRomajiFromReading(problem.reading),
+    )
     expect(view.displayRomaji).toBe('susi')
     expect(view.typedLength).toBe(4)
   })

@@ -88,7 +88,7 @@ import {
 } from '../utils/fallingProjectileMotion'
 import { computeSpawnYPercent } from '../utils/spawnLayout'
 import { getSoundManager } from '../audio/SoundManager'
-import type { DifficultyId } from '../types/app'
+import type { DifficultyId, RomajiLetterCase } from '../types/app'
 import type { GameResultSummary, PlayCoinSummary } from '../types/game'
 import type { InterceptAction, EnemyProjectile } from '../types/projectile'
 import {
@@ -122,6 +122,7 @@ interface GameScreenProps {
   volume: number
   muted: boolean
   reducedMotion: boolean
+  romajiLetterCase?: RomajiLetterCase
   browserBackRequest?: number
   coins: number
   onVolumeChange: (volume: number) => void
@@ -263,6 +264,7 @@ export function GameScreen({
   volume,
   muted,
   reducedMotion,
+  romajiLetterCase = 'lower',
   browserBackRequest = 0,
   coins,
   onVolumeChange,
@@ -1380,6 +1382,7 @@ export function GameScreen({
                 state.lockedProjectileId === projectile.id
               }
               registerElement={registerElement}
+              romajiLetterCase={romajiLetterCase}
             />
           ),
         )}

@@ -6,6 +6,7 @@ import type {
 } from '../types/typing'
 import type { MoraNode } from './romajiRules'
 import {
+  buildDisplayRomajiFromReading,
   buildMoraNodes,
   getFirstInputChars,
   isCompleteMora,
@@ -27,7 +28,7 @@ export function getMoraNodesForProblem(problem: TypingProblem): MoraNode[] {
     return cached
   }
 
-  const displayRomaji = problem.romajiPatterns[0]?.toLowerCase() ?? ''
+  const displayRomaji = buildDisplayRomajiFromReading(problem.reading)
   const morae = parseReadingToMorae(problem.reading)
   const nodes = mergePatternOptions(
     buildMoraNodes(morae, displayRomaji),
@@ -53,11 +54,13 @@ export function createRomajiMatchState(): RomajiMatchState {
 export function resolveActiveRomajiDisplay(
   patterns: readonly string[],
   typedPrefix: string,
+  displayRepresentative?: string,
 ): string {
   const normalized = patterns
     .map((pattern) => pattern.toLowerCase())
     .filter((pattern) => pattern.length > 0)
-  const representative = normalized[0] ?? ''
+  const representative =
+    displayRepresentative?.toLowerCase() ?? normalized[0] ?? ''
   const prefix =
     typeof typedPrefix === 'string' ? typedPrefix.toLowerCase() : ''
 
@@ -85,10 +88,15 @@ export function resolveActiveRomajiDisplay(
 export function getActiveRomajiView(
   patterns: readonly string[],
   state: Pick<RomajiMatchState, 'typedPrefix' | 'isComplete'>,
+  displayRepresentative?: string,
 ): { displayRomaji: string; typedLength: number } {
   const prefix =
     typeof state.typedPrefix === 'string' ? state.typedPrefix.toLowerCase() : ''
-  const displayRomaji = resolveActiveRomajiDisplay(patterns, prefix)
+  const displayRomaji = resolveActiveRomajiDisplay(
+    patterns,
+    prefix,
+    displayRepresentative,
+  )
   const typedLength = state.isComplete
     ? displayRomaji.length
     : Math.min(prefix.length, displayRomaji.length)
@@ -182,6 +190,7 @@ export function processRomajiInput(
   const activeDisplay = resolveActiveRomajiDisplay(
     problem.romajiPatterns,
     typedPrefix,
+    buildDisplayRomajiFromReading(problem.reading),
   )
   const nextConfirmedLength = isComplete
     ? activeDisplay.length

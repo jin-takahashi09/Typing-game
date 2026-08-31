@@ -1,13 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react'
+import type { RomajiLetterCase } from '../../types/app'
 import type { EnemyProjectile } from '../../types/projectile'
 import { PLAYER_X_PERCENT } from '../../types/projectile'
 import { getActiveRomajiView } from '../../utils/romajiMatcher'
+import { formatRomajiForDisplay } from '../../utils/romajiRules'
 
 interface EnemyProjectileViewProps {
   projectile: EnemyProjectile
   isLocked: boolean
   showMiss: boolean
   registerElement: (id: string, element: HTMLElement | null) => void
+  romajiLetterCase?: RomajiLetterCase
 }
 
 function bounceOffsetPx(spawnX: number): { x: number; y: number } {
@@ -25,6 +28,7 @@ export function EnemyProjectileView({
   isLocked,
   showMiss,
   registerElement,
+  romajiLetterCase = 'lower',
 }: EnemyProjectileViewProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -44,8 +48,13 @@ export function EnemyProjectileView({
   }, [projectile.id, projectile.spawnY])
 
   const { displayRomaji: activeRomaji, typedLength: activeTypedLength } =
-    getActiveRomajiView(projectile.romajiPatterns, projectile.matchState)
-  const chars = activeRomaji.split('')
+    getActiveRomajiView(
+      projectile.romajiPatterns,
+      projectile.matchState,
+      projectile.displayRomaji,
+    )
+  const visibleRomaji = formatRomajiForDisplay(activeRomaji, romajiLetterCase)
+  const chars = visibleRomaji.split('')
   const isResolving =
     projectile.state === 'resolving' || projectile.state === 'destroyed'
   const isEmergency =
@@ -81,7 +90,7 @@ export function EnemyProjectileView({
       data-x={Math.round(projectile.spawnX)}
       data-y={Math.round(projectile.spawnY)}
       data-spawn-x={Math.round(projectile.spawnX)}
-      data-active-romaji={activeRomaji}
+      data-active-romaji={visibleRomaji}
     >
       <div
         className={[
@@ -97,9 +106,9 @@ export function EnemyProjectileView({
         </div>
         <div
           className="enemy-falling-text__romaji"
-          aria-label={`${projectile.displayText} ${activeRomaji}`}
+          aria-label={`${projectile.displayText} ${visibleRomaji}`}
           data-testid="enemy-romaji"
-          data-romaji-length={activeRomaji.length}
+          data-romaji-length={visibleRomaji.length}
         >
           {chars.map((char, index) => {
             const isTyped = index < activeTypedLength
@@ -110,7 +119,7 @@ export function EnemyProjectileView({
               projectile.state !== 'resolving'
             return (
               <span
-                key={`${projectile.id}-fall-${index}-${activeRomaji}`}
+                key={`${projectile.id}-fall-${index}-${visibleRomaji}`}
                 className={[
                   isTyped ? 'char-correct' : '',
                   isCurrent ? 'char-current' : '',

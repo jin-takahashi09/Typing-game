@@ -14,6 +14,7 @@ describe('settings defaults and recovery', () => {
     expect(data.settings.volume).toBe(0.7)
     expect(data.settings.muted).toBe(false)
     expect(data.settings.motionPreference).toBe('system')
+    expect(data.settings.romajiLetterCase).toBe('lower')
   })
 
   it('clamps invalid volume and recovers bad motion preference', () => {
@@ -24,12 +25,14 @@ describe('settings defaults and recovery', () => {
         muted: 'nope',
         motionPreference: 'turbo',
         lastDifficulty: 'ghost',
+        romajiLetterCase: 'caps',
       },
     })
     expect(data.settings.volume).toBe(1)
     expect(data.settings.muted).toBe(false)
     expect(data.settings.motionPreference).toBe('system')
     expect(data.settings.lastDifficulty).toBeNull()
+    expect(data.settings.romajiLetterCase).toBe('lower')
   })
 
   it('persists settings through storage adapter', () => {
@@ -45,6 +48,15 @@ describe('settings defaults and recovery', () => {
     expect(loaded.data.settings.muted).toBe(true)
     expect(loaded.data.settings.motionPreference).toBe('reduced')
     expect(adapter.getItem(STORAGE_KEY)).toContain('"muted":true')
+  })
+
+  it('persists romaji letter case', () => {
+    const adapter = createMemoryStorageAdapter()
+    const data = createDefaultStoredData()
+    data.settings.romajiLetterCase = 'upper'
+    expect(saveStoredData(data, adapter).ok).toBe(true)
+    const loaded = loadStoredData(adapter)
+    expect(loaded.data.settings.romajiLetterCase).toBe('upper')
   })
 
   it('keeps session usable when save fails', () => {

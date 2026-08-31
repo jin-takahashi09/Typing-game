@@ -409,7 +409,7 @@ export function GachaRevealFx({
           />
         )}
         {showLightning && rareTier && <LightningLayer tier={rareTier} />}
-        {showElectricAura && rareTier && !showSilhouette && (
+        {showElectricAura && rareTier && (
           <div className="gacha-reveal__charge-zone">
             <ElectricAura tier={rareTier} />
           </div>
@@ -444,16 +444,16 @@ export function GachaRevealFx({
         )}
         {showSilhouette && firstItem && (
           <div
+            key="gacha-reveal-character"
             className={[
               'gacha-reveal__silhouette',
-              showElectricAura && rareTier
+              rareTier
                 ? `gacha-reveal__silhouette--charged gacha-reveal__silhouette--${rareTier}`
                 : '',
             ]
               .filter(Boolean)
               .join(' ')}
           >
-            {showElectricAura && rareTier && <ElectricAura tier={rareTier} />}
             <CharacterPreview
               characterId={firstItem.characterId}
               size="gacha-result"

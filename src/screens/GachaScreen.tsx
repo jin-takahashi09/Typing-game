@@ -82,7 +82,7 @@ export function GachaScreen({
   return (
     <main className="gacha-corner-screen flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-3 sm:px-4 sm:py-5">
       <section className="panel-glow gacha-corner-panel w-full max-w-2xl rounded-[var(--radius-xl)] bg-black/90 px-4 py-4 sm:px-6 sm:py-5">
-        <BackButton onClick={onBack} />
+        <BackButton onClick={onBack} className="gacha-back-btn" />
 
         <header className="mb-2 text-center">
           <h1

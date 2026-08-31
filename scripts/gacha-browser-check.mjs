@@ -108,7 +108,7 @@ async function waitResultModal(page) {
 async function assertCenteredModal(page) {
   const info = await page.evaluate(() => {
     const modal = document.querySelector('[data-testid="gacha-result-modal"]')
-    const portal = document.querySelector('[data-testid="gacha-result-portal"]')
+    const portal = document.querySelector('[data-testid="gacha-fullscreen-overlay"]')
     if (!modal || !portal) {
       return { ok: false, reason: 'missing nodes' }
     }
@@ -338,6 +338,71 @@ async function runChecks() {
     const unlocked = await page.evaluate(() => document.body.style.overflow !== 'hidden')
     if (unlocked) pass('gacha: scroll restored after close')
     else fail('gacha: scroll restored after close', 'still locked')
+
+    // Full reveal (no skip): single entrance on character, no second card entrance
+    await setGachaRng(page, [0.01, 0.5])
+    await page.getByTestId('gacha-single').click()
+    await page.waitForSelector('[data-testid="gacha-reveal-visual"]', {
+      timeout: 8000,
+    })
+    const singleEntranceAnim = await page.evaluate(() => {
+      const visual = document.querySelector('[data-testid="gacha-reveal-visual"]')
+      if (!visual) return { ok: false, reason: 'missing result visual during reveal' }
+      const style = getComputedStyle(visual)
+      return {
+        ok:
+          style.animationName.includes('gachaResultEnter') &&
+          style.animationIterationCount === '1',
+        animationName: style.animationName,
+        animationIterationCount: style.animationIterationCount,
+      }
+    })
+    if (singleEntranceAnim.ok) {
+      pass('gacha: reveal result visual uses single entrance animation')
+    } else {
+      fail(
+        'gacha: reveal result visual uses single entrance animation',
+        JSON.stringify(singleEntranceAnim),
+      )
+    }
+    await page.waitForSelector('[data-testid="gacha-result-modal"]', {
+      timeout: 12000,
+    })
+    const settledAfterReveal = await page.evaluate(() => {
+      const visual = document.querySelector('[data-testid="gacha-result-card"]')?.closest('.gacha-result-visual')
+      return visual?.classList.contains('gacha-result-visual--single-settled') ?? false
+    })
+    if (settledAfterReveal) {
+      pass('gacha: result visual skips second entrance after full reveal')
+    } else {
+      fail('gacha: result visual skips second entrance after full reveal', 'visual still enters')
+    }
+    await page.getByTestId('gacha-reveal-close').click()
+    await page.waitForSelector('[data-testid="gacha-result-modal"]', {
+      state: 'detached',
+      timeout: 5000,
+    })
+
+    // Early skip: result modal should still entrance once
+    await setGachaRng(page, [0.01, 0.5])
+    await page.getByTestId('gacha-single').click()
+    await page.waitForSelector('[data-testid="gacha-reveal"]', { timeout: 5000 })
+    await page.getByTestId('gacha-reveal-skip').click()
+    await waitResultModal(page)
+    const enterAfterSkip = await page.evaluate(() => {
+      const visual = document.querySelector('[data-testid="gacha-result-card"]')?.closest('.gacha-result-visual')
+      return visual?.classList.contains('gacha-result-visual--single-enter') ?? false
+    })
+    if (enterAfterSkip) {
+      pass('gacha: early skip keeps result visual entrance')
+    } else {
+      fail('gacha: early skip keeps result visual entrance', 'enter class missing')
+    }
+    await page.getByTestId('gacha-reveal-close').click()
+    await page.waitForSelector('[data-testid="gacha-result-modal"]', {
+      state: 'detached',
+      timeout: 5000,
+    })
 
     // Duplicate pull of default-owned via forcing first N char (index 0)
     await setGachaRng(page, [0.01, 0])

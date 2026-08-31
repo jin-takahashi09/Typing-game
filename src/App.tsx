@@ -29,6 +29,7 @@ import {
 } from './utils/economy'
 import { pullGacha, type GachaPullItem, type GachaPullType } from './utils/gacha'
 import type { CharacterRarity } from './config/characters'
+import { gachaConfig } from './config/gachaConfig'
 import { getSoundManager } from './audio/SoundManager'
 import {
   useAppHistory,
@@ -115,6 +116,27 @@ export default function App() {
     const saveResult = saveStoredData(next)
     return saveResult.ok
   }, [])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) {
+      return
+    }
+    const current = storedDataRef.current
+    if (current.economy.coins >= gachaConfig.multiCost) {
+      return
+    }
+    const result = awardCoins(
+      current.economy,
+      10_000 - current.economy.coins,
+    )
+    if (!result.ok) {
+      return
+    }
+    commitStoredData({
+      ...current,
+      economy: result.economy,
+    })
+  }, [commitStoredData])
 
   const updateSettings = useCallback((patch: Partial<StoredSettings>) => {
     const next: StoredAppData = {

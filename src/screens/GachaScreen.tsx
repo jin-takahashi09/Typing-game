@@ -3,13 +3,13 @@ import type { CharacterRarity } from '../config/characters'
 import { gachaConfig, RARITY_ORDER, formatRatePercent } from '../config/gachaConfig'
 import { formatRarityLabel } from '../config/rarityLabels'
 import { BackButton } from '../components/common/BackButton'
+import { GachaFullscreenOverlay } from '../components/gacha/GachaFullscreenOverlay'
+import { GachaPullReveal } from '../components/gacha/GachaPullReveal'
 import { GachaScrollShrine } from '../components/gacha/GachaScrollShrine'
-import { GachaRevealFx } from '../components/gacha/GachaRevealFx'
-import { GachaResultModal } from '../components/gacha/GachaResultModal'
 import { useFocusOnMount } from '../hooks/useFocusTrap'
 import type { GachaPullItem, GachaPullType } from '../utils/gacha'
 
-type GachaPhase = 'idle' | 'machine' | 'reveal' | 'result'
+type GachaPhase = 'idle' | 'reveal'
 
 interface GachaScreenProps {
   error: string | null
@@ -55,21 +55,13 @@ export function GachaScreen({
         setActivePullType(pullType)
         setPeakRarity(result.peakRarity ?? 'N')
         setRevealItems(result.items)
-        setPhase('machine')
+        setPhase('reveal')
       } finally {
         pullingRef.current = false
       }
     },
     [busy, onPull],
   )
-
-  const handleMachineComplete = useCallback(() => {
-    setPhase('reveal')
-  }, [])
-
-  const handleRevealComplete = useCallback(() => {
-    setPhase('result')
-  }, [])
 
   const handleResultClose = useCallback(() => {
     setRevealItems(null)
@@ -81,7 +73,13 @@ export function GachaScreen({
 
   return (
     <main className="gacha-corner-screen flex min-h-screen flex-col items-center overflow-x-hidden px-3 py-3 sm:px-4 sm:py-5">
-      <section className="panel-glow gacha-corner-panel w-full max-w-2xl rounded-[var(--radius-xl)] bg-black/90 px-4 py-4 sm:px-6 sm:py-5">
+      <section
+        className={[
+          'panel-glow gacha-corner-panel w-full max-w-2xl rounded-[var(--radius-xl)] bg-black/90 px-4 py-4 sm:px-6 sm:py-5',
+          busy ? 'gacha-corner-panel--obscured' : '',
+        ].join(' ')}
+        aria-hidden={busy}
+      >
         <BackButton onClick={onBack} className="gacha-back-btn" />
 
         <header className="mb-2 text-center">
@@ -112,15 +110,17 @@ export function GachaScreen({
           </p>
         )}
 
-        <div className="gacha-corner-stage">
-          <GachaScrollShrine
-            active={phase === 'machine'}
-            peakRarity={peakRarity}
-            pullType={activePullType}
-            reducedMotion={reducedMotion}
-            onComplete={handleMachineComplete}
-          />
-        </div>
+        {phase === 'idle' && (
+          <div className="gacha-corner-stage gacha-corner-stage--idle">
+            <GachaScrollShrine
+              active={false}
+              peakRarity="N"
+              pullType="single"
+              reducedMotion={reducedMotion}
+              onComplete={() => {}}
+            />
+          </div>
+        )}
 
         <div className="gacha-corner-actions">
           <button
@@ -173,20 +173,16 @@ export function GachaScreen({
       </section>
 
       {phase === 'reveal' && revealItems && (
-        <GachaRevealFx
-          items={revealItems}
-          peakRarity={peakRarity}
-          reducedMotion={reducedMotion}
-          onComplete={handleRevealComplete}
-        />
-      )}
-
-      {phase === 'result' && revealItems && (
-        <GachaResultModal
-          items={revealItems}
-          peakRarity={peakRarity}
-          onClose={handleResultClose}
-        />
+        <GachaFullscreenOverlay pullType={activePullType} phase="reveal">
+          <GachaPullReveal
+            key={`reveal-${activePullType}-${revealItems.map((item) => item.characterId).join('-')}`}
+            items={revealItems}
+            peakRarity={peakRarity}
+            pullType={activePullType}
+            reducedMotion={reducedMotion}
+            onClose={handleResultClose}
+          />
+        </GachaFullscreenOverlay>
       )}
 
       <span className="sr-only" data-testid="gacha-phase" data-phase={phase}>

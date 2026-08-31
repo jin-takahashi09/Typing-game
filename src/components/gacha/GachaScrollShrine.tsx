@@ -1,12 +1,14 @@
 import { useEffect } from 'react'
 import type { CharacterRarity } from '../../config/characters'
 import type { GachaPullType } from '../../utils/gacha'
+import { GachaScrollBundle } from './GachaScrollBundle'
 
 interface GachaScrollShrineProps {
   active: boolean
   peakRarity: CharacterRarity
   pullType: GachaPullType
   reducedMotion: boolean
+  fullscreen?: boolean
   onComplete: () => void
 }
 
@@ -23,6 +25,7 @@ export function GachaScrollShrine({
   peakRarity,
   pullType,
   reducedMotion,
+  fullscreen = false,
   onComplete,
 }: GachaScrollShrineProps) {
   useEffect(() => {
@@ -43,6 +46,7 @@ export function GachaScrollShrine({
         peakTierClass(peakRarity),
         active ? 'scroll-shrine--active' : '',
         multi ? 'scroll-shrine--multi' : 'scroll-shrine--single',
+        fullscreen ? 'scroll-shrine--fullscreen' : '',
         reducedMotion ? 'scroll-shrine--reduced' : '',
       ]
         .filter(Boolean)
@@ -74,24 +78,28 @@ export function GachaScrollShrine({
         <div className="scroll-shrine__shuriken scroll-shrine__shuriken--1" />
         <div className="scroll-shrine__shuriken scroll-shrine__shuriken--2" />
         <div className="scroll-shrine__scroll-rack">
-          <div className="scroll-shrine__scroll scroll-shrine__scroll--back scroll-shrine__scroll--back-left" />
-          <div className="scroll-shrine__scroll scroll-shrine__scroll--back scroll-shrine__scroll--back-right" />
-          <div className="scroll-shrine__scroll scroll-shrine__scroll--main">
-            <span className="scroll-shrine__scroll-seal">印</span>
-          </div>
-          {multi && (
+          {!multi && (
             <>
-              <div className="scroll-shrine__scroll scroll-shrine__scroll--extra scroll-shrine__scroll--extra-1" />
-              <div className="scroll-shrine__scroll scroll-shrine__scroll--extra scroll-shrine__scroll--extra-2" />
+              <div className="scroll-shrine__scroll scroll-shrine__scroll--back scroll-shrine__scroll--back-left" />
+              <div className="scroll-shrine__scroll scroll-shrine__scroll--back scroll-shrine__scroll--back-right" />
+              <div className="scroll-shrine__scroll scroll-shrine__scroll--main">
+                <span className="scroll-shrine__scroll-seal">印</span>
+              </div>
             </>
           )}
         </div>
         <div className="scroll-shrine__stamp">忍</div>
       </div>
       <div className="scroll-shrine__smoke" />
-      <div className="scroll-shrine__float-scroll">
-        <div className="scroll-shrine__scroll scroll-shrine__scroll--launch">
-          <span className="scroll-shrine__scroll-seal">印</span>
+      <div className="scroll-shrine__float-positioner">
+        <div className="scroll-shrine__float-animation">
+          {multi ? (
+            <GachaScrollBundle context="machine" />
+          ) : (
+            <div className="scroll-shrine__scroll scroll-shrine__scroll--launch">
+              <span className="scroll-shrine__scroll-seal">印</span>
+            </div>
+          )}
         </div>
       </div>
       <div className="scroll-shrine__spark scroll-shrine__spark--sr" />
